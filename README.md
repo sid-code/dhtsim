@@ -11,7 +11,7 @@ There are some components to the simulation. Most importantly, there
 is the "network." In a very abstact sense, it holds all of the
 participants and transfers messages between them. The network
 implementation in `network.hpp` describes one of the simplest possible
-network: a fully connected network. Every node can send a message to
+networks: a fully connected network. Every node can send a message to
 every other node in the same amount of time.
 
 The network assigns an address to everybody that joins. In the
@@ -34,7 +34,7 @@ message into it (`Application::recv`). Every epoch, or "tick",
 `Application::tick` is called on every application in the
 network. Each application then has a chance to do whatever it
 wants. One can hope that it stored the messages it received in a queue
-or something like that.
+or something like that so that it can access them now.
 
 ## The message
 
@@ -46,12 +46,25 @@ The 'tag' field is to check for responses. If you're responding to a
 message you got, you use the same tag. That way, the application that
 sent it knows that it was indeed a response.
 
+The 'hops' field is to count the number of hops the message took. This
+may be useful later, but I don't use it now.
+
 ## `base.hpp`
 
 This file contains a subclass of `Application` that provides many
 functionalities such as queues for messages and callbacks for
 responses.
 
+## `pingonly.hpp`
+
+Finally. This file contains a subclass of `BaseApplication` that
+demonstrates how to actually write a real application. This
+application just responds to pings. See the enum at the top of the
+file that defines the messgae types? This is just giving names to some
+integers.
+
+All this class needs to do is implement `handleMessage`. The `ping`
+method is for convenience. See how it's used by `main.cpp`.
 
 # What does main.cpp do?
 
