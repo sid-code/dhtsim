@@ -46,10 +46,11 @@ The 'tag' field is to check for responses. If you're responding to a
 message you got, you use the same tag. That way, the application that
 sent it knows that it was indeed a response.
 
-## `BaseApplication.cpp`
+## `base.hpp`
 
-This is a subclass of `Application` that provides many functionalities
-such as queues for messages and callbacks for responses.
+This file contains a subclass of `Application` that provides many
+functionalities such as queues for messages and callbacks for
+responses.
 
 
 # What does main.cpp do?
