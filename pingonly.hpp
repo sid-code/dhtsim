@@ -21,15 +21,10 @@ template <typename A> class PingOnlyApplication : public BaseApplication<A> {
 public:
 	PingOnlyApplication(){};
 	void ping(A other, std::optional<CallbackFunction> callback = std::nullopt);
-	virtual void send(Message<A> m, std::optional<CallbackFunction> callback = std::nullopt);
 	virtual void handleMessage(Message<A> m);
 	virtual ~PingOnlyApplication(){};
 
 };
-
-template <typename A> void PingOnlyApplication<A>::send(Message<A> m, std::optional<CallbackFunction> callback) {
-	BaseApplication<A>::send(m, callback);
-}
 
 template <typename A> void PingOnlyApplication<A>::ping(A other, std::optional<CallbackFunction> callback) {
 	auto tag = this->randomTag();
