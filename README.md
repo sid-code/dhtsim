@@ -66,6 +66,33 @@ integers.
 All this class needs to do is implement `handleMessage`. The `ping`
 method is for convenience. See how it's used by `main.cpp`.
 
+### Sidenote: why is everything in these header files?
+
+Because that's just how C++ template classes work. Just having the
+*templated method signatures* in the header without the method
+definitions isn't enough, you need all the method definitions so that
+the .cpp file that includes the template knows how to instantiate the
+methods with a template parameter. In the absence of templates, the
+linker knows how to fetch methods from other .cpp files that were
+compiled, but since the compiler is done running, all it has to work
+here are templates that were never instantiated in the first place,
+ergo nothing.
+
+A template is not a class; and template class instance methods are not
+methods. They are all *templates*, and have no meaning until their
+template parameters are passed some value. These instantiations occur
+in various places. In `main.cpp` there are a few that look like
+`SomethingSomethingApplication<uint32_t>`.
+
+See the bottom of network.cpp, where the `CentralizedNetwork` template
+is instantiated. That puts the `CentralizedNetwork<uint32_t>` methods
+into the `network.o` object file where they can be seen by other
+compilation units. This is another way to get around the header-only
+problem. As you can see, both approaches have its drawbacks. I will
+never be able to instantiate `CentralizedNetwork` outside of the
+`network.cpp` file, but on the other hand I don't have to include
+a fat header. I have yet to decide which option is better.
+
 # What does main.cpp do?
 
 It runs the main loop. Build everything with `make` and then run the
