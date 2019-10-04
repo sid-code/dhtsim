@@ -68,28 +68,10 @@ method is for convenience. See how it's used by `main.cpp`.
 
 ### Sidenote: why is everything in these header files?
 
-Because that's just how C++ template classes work. You can't just
-include a header with only *template method signatures* and expect the
-linker to magically instantiate the templates however you want. That's
-why all the method definitions are also in the header; to tell other
-compilation units how to *fully* instantiate the class. A template is
-can be thought of as a HUGE compile-time constructor in that it is
-useless until it is instantiated (template word for "called").
-
-A template is not a class; and template class instance methods are not
-methods. They are all *templates*, and have no meaning until their
-template parameters are passed some value. These instantiations occur
-in various places. In `main.cpp` there are a few that look like
-`SomethingSomethingApplication<uint32_t>`.
-
-See the bottom of network.cpp, where the `CentralizedNetwork` template
-is instantiated. That puts the `CentralizedNetwork<uint32_t>` methods
-into the `network.o` object file where they can be seen by other
-compilation units. This is another way to get around the header-only
-problem. As you can see, both approaches have its drawbacks. I will
-never be able to instantiate `CentralizedNetwork` outside of the
-`network.cpp` file, but on the other hand I don't have to include
-a fat header. I have yet to decide which option is better.
+Because that's just how C++ template classes work. See
+[https://stackoverflow.com/questions/1639797/template-issue-causes-linker-error-c](this
+stackoverflow question) for an explanation. Also, notice the explicit
+template instantiation in `network.cpp`.
 
 # What does main.cpp do?
 
