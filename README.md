@@ -68,15 +68,13 @@ method is for convenience. See how it's used by `main.cpp`.
 
 ### Sidenote: why is everything in these header files?
 
-Because that's just how C++ template classes work. Just having the
-*templated method signatures* in the header without the method
-definitions isn't enough, you need all the method definitions so that
-the .cpp file that includes the template knows how to instantiate the
-methods with a template parameter. In the absence of templates, the
-linker knows how to fetch methods from other .cpp files that were
-compiled, but since the compiler is done running, all it has to work
-here are templates that were never instantiated in the first place,
-ergo nothing.
+Because that's just how C++ template classes work. You can't just
+include a header with only *template method signatures* and expect the
+linker to magically instantiate the templates however you want. That's
+why all the method definitions are also in the header; to tell other
+compilation units how to *fully* instantiate the class. A template is
+can be thought of as a HUGE compile-time constructor in that it is
+useless until it is instantiated (template word for "called").
 
 A template is not a class; and template class instance methods are not
 methods. They are all *templates*, and have no meaning until their
