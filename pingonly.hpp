@@ -1,5 +1,5 @@
-#ifndef _PINGONLY_H
-#define _PINGONLY_H
+#ifndef DHTSIM_PINGONLY_H
+#define DHTSIM_PINGONLY_H
 
 #include "application.hpp"
 #include "base.hpp"

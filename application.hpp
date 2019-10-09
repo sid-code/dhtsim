@@ -1,5 +1,5 @@
-#ifndef _APPLICATION_H
-#define _APPLICATION_H
+#ifndef DHTSIM_APPLICATION_H
+#define DHTSIM_APPLICATION_H
 
 #include "message.hpp"
 #include "time.hpp"

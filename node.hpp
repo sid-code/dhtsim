@@ -1,5 +1,5 @@
-#ifndef _NODE_H
-#define _NODE_H
+#ifndef DHTSIM_NODE_H
+#define DHTSIM_NODE_H
 
 #include "application.hpp"
 #include "base.hpp"

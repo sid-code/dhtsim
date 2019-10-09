@@ -1,5 +1,5 @@
-#ifndef _BASE_H
-#define _BASE_H
+#ifndef DHTSIM_BASE_H
+#define DHTSIM_BASE_H
 
 #include "application.hpp"
 #include "message.hpp"

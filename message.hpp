@@ -1,5 +1,5 @@
-#ifndef _MESSAGE_H
-#define _MESSAGE_H
+#ifndef DHTSIM_MESSAGE_H
+#define DHTSIM_MESSAGE_H
 
 #include <random>
 #include <vector>
