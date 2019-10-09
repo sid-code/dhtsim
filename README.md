@@ -60,7 +60,7 @@ responses.
 Finally. This file contains a subclass of `BaseApplication` that
 demonstrates how to actually write a real application. This
 application just responds to pings. See the enum at the top of the
-file that defines the messgae types? This is just giving names to some
+file that defines the message types? This is just giving names to some
 integers.
 
 All this class needs to do is implement `handleMessage`. The `ping`
@@ -71,7 +71,9 @@ method is for convenience. See how it's used by `main.cpp`.
 Because that's just how C++ template classes work. See
 [https://stackoverflow.com/questions/1639797/template-issue-causes-linker-error-c](this
 stackoverflow question) for an explanation. Also, notice the explicit
-template instantiation in `network.cpp`.
+template instantiation in `network.cpp`. This is to avoid having all
+the definitions of the `network.hpp` declarations in the same header
+file.
 
 # What does main.cpp do?
 
