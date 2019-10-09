@@ -2,13 +2,15 @@
 #define _NETWORK_H
 
 #include "application.hpp"
+#include "time.hpp"
+
 #include <map>
 #include <cstdint>
 #include <random>
-
 #include <memory>
 
 namespace dhtsim {
+
 
 /**
  * A simple abstract network. It is parametrized by a numeric type A,
@@ -21,7 +23,7 @@ private:
 	std::random_device dev;
 	std::mt19937 rng;
 	A getNewAddress();
-	unsigned long epoch;
+	Time epoch;
 public:
 	// The bytes-per-tick limit of a single link on this network
 	unsigned int linkLimit;

@@ -2,6 +2,8 @@
 #define _APPLICATION_H
 
 #include "message.hpp"
+#include "time.hpp"
+
 #include <queue>
 #include <functional>
 #include <random>
@@ -50,7 +52,7 @@ public:
 	 * @param time The current time, measured as network ticks
 	 *             since startup.
 	 */
-	virtual void tick(unsigned long time) = 0;
+	virtual void tick(Time time) = 0;
 
 	/**
 	 * A setter to be possibly overriden, as changing addresses

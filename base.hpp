@@ -3,6 +3,7 @@
 
 #include "application.hpp"
 #include "message.hpp"
+#include "time.hpp"
 #include <map>
 #include <iostream>
 
@@ -45,16 +46,16 @@ private:
 		CallbackFunction callback;
 
 		/** The time at which this message was last sent. */
-		unsigned long timeSent;
+		Time timeSent;
 
 		/** The time at which this message is scheduled to be sent next. */
-		unsigned long nextSend;
+		Time nextSend;
 
 		/** The number of times we have retried. */
 		unsigned long retries;
 
 		SentMessage() = default;
-                SentMessage(Message<A> m, CallbackFunction cbf, unsigned long time,
+                SentMessage(Message<A> m, CallbackFunction cbf, Time time,
                             unsigned long timeout)
 			: message(m), callback(cbf), timeSent(time),
 			  nextSend(time + timeout), retries(0) {}
@@ -64,8 +65,8 @@ private:
 		 * @param time The time of retry.
 		 * @param backoffFactor How many times longer will the next retry interval be?
 		 */
-		void retry(unsigned long time, int backoffFactor) {
-			unsigned long diff = this->nextSend - this->timeSent;
+		void retry(Time time, int backoffFactor) {
+			Time diff = this->nextSend - this->timeSent;
 			this->timeSent = time;
 			this->nextSend = this->timeSent + diff * backoffFactor;
 			this->retries++;
@@ -84,7 +85,7 @@ private:
 
 protected:
 	/** The current network's time. */
-	unsigned long epoch;
+	Time epoch;
 
 	std::queue<Message<A>> inqueue, outqueue;
 	void queueIn(Message<A> m);
@@ -94,7 +95,7 @@ public:
 	virtual void recv(Message<A> m) { this->queueIn(m); }
 	virtual std::optional<Message<A>> unqueueOut();
 	virtual void handleMessage(Message<A> m);
-	virtual void tick(unsigned long time);
+	virtual void tick(Time time);
 	virtual void send(Message<A> m, std::optional<CallbackFunction> callback = std::nullopt);
 };
 
@@ -129,7 +130,7 @@ template <typename A> void BaseApplication<A>::queueOut(Message<A> m) {
 	}
 }
 
-template <typename A> void BaseApplication<A>::tick(unsigned long time) {
+template <typename A> void BaseApplication<A>::tick(Time time) {
 	// Update our record of the time.
 	this->epoch = time;
 
