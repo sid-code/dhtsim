@@ -19,7 +19,7 @@ uint32_t keyDistance(uint32_t x, uint32_t y) {
  * A distributed hash table node in a network where addresses are 32
  * bits.
  */
-class Node : public BaseApplication<uint32_t> {
+class KademliaNode : public BaseApplication<uint32_t> {
 public:
 	// As per kademlia, the key length is the length of the SHA1
 	// digest.
@@ -37,7 +37,7 @@ public:
 		Time lastSeen;
 	};
 
-	Node();
+	KademliaNode();
 	/** RPCS */
 
 	void find_nodes(const Key& target, std::optional<CallbackFunction> cb);
