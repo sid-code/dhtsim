@@ -36,7 +36,10 @@ public:
 	 * response. This can be called by the application or the
 	 * network.
 	 */
-	virtual void send(Message<A> m, std::optional<CallbackFunction> callback = std::nullopt) = 0;
+	virtual void send(Message<A> m,
+	                  std::optional<CallbackFunction> callback = std::nullopt,
+	                  bool retry = true,
+	                  unsigned long timeout = 0) = 0;
 
 	/** Receive a message. This is called by the network. */
         virtual void recv(Message<A> m) = 0;
