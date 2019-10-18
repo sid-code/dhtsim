@@ -15,7 +15,7 @@ int main() {
 	unsigned int nodes = 2, i;
 
 	std::vector<std::shared_ptr<PingOnlyApplication<uint32_t>>> apps;
-	for (int i = 0; i < nodes; i++) {
+	for (i = 0; i < nodes; i++) {
 		auto app = std::make_shared<PingOnlyApplication<uint32_t>>();
 		apps.push_back(app);
 		net.add(app);
@@ -31,6 +31,7 @@ int main() {
 			apps[0]->ping(
 				addr,
 				[](auto m){
+					(void)m;
 					std::clog<<"GOT BACK PONG"<<std::endl;
 				});
 		}
