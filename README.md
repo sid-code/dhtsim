@@ -1,9 +1,9 @@
 # DHT simulator
 
 This is an abstract network simulator created for the purpuse of
-simulating distributed hash tables. It is written in C++17 and has no
-dependencies other than the standard library. Either `clang` or `g++` can
-be used to compile it.
+simulating distributed hash tables. It is written in C++17 and depends
+on the standard library and ssl (for the SHA1 function). Either
+`clang` or `g++` can be used to compile it.
 
 ## The network
 

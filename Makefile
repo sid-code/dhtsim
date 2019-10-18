@@ -4,9 +4,9 @@ HEADERS = $(wildcard *.hpp)
 OBJECTS = $(SOURCES:%.cpp=%.o)
 PROGRAM = $(shell basename `pwd`)
 
-CC := $(shell which clang || which gcc)
+CC := $(shell which gcc || which clang)
 CFLAGS = -Wall -Wextra -pedantic -W -O -fno-exceptions -fno-rtti --std=c++17
-LIBS = stdc++ m
+LIBS = stdc++ m ssl crypto
 LDFLAGS = $(LIBS:%=-l%)
 
 $(PROGRAM) : $(OBJECTS)
