@@ -16,17 +16,16 @@ enum PingMessageType {
 };
 
 template <typename A> class PingOnlyApplication : public BaseApplication<A> {
-	using CallbackFunction = std::function<void(Message<A>)>;
-
 public:
+	using CallbackSet = typename Application<A>::CallbackSet;
 	PingOnlyApplication(){};
-	void ping(A other, std::optional<CallbackFunction> callback = std::nullopt);
+	void ping(A other, CallbackSet callback = CallbackSet());
 	virtual void handleMessage(Message<A> m);
 	virtual ~PingOnlyApplication(){};
 
 };
 
-template <typename A> void PingOnlyApplication<A>::ping(A other, std::optional<CallbackFunction> callback) {
+template <typename A> void PingOnlyApplication<A>::ping(A other, CallbackSet callback) {
 	auto tag = this->randomTag();
 	std::vector<unsigned char> data;
 	Message<A> m(PM_PING, this->getAddress(), other, tag, data);

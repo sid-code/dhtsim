@@ -8,11 +8,12 @@
 #include <map>
 #include <iostream>
 #include <optional>
+#include <functional>
 
 namespace dhtsim {
 template <typename A> class BaseApplication : public Application<A> {
 public:
-	using CallbackFunction = std::function<void(Message<A>)>;
+	using CallbackSet = typename Application<A>::CallbackSet;
 	virtual void recv(Message<A> m) { this->queueIn(m); }
 	virtual std::optional<Message<A>> unqueueOut();
 	virtual void handleMessage(Message<A> m);
@@ -22,11 +23,11 @@ public:
          * @param {m} The message to send.
          * @param {callback} The function to execute with the response.
          * @param {timeout} The timeout before message is considered "lost"
-         * @param {retry} should we retry if we don't get a response by <timeout>? (exponential backoff)
+         * @param {maxRetries} how many times to retry? (exponential backoff, starting with timeout)
          */
-        virtual void send(Message<A> m,
-                          std::optional<CallbackFunction> callback = std::nullopt,
-                          bool retry = true,
+	virtual void send(Message<A> m,
+	                  CallbackSet callback = CallbackSet(),
+                          unsigned int maxRetries = 16,
                           unsigned long timeout = 0);
 protected:
         /** The current network's time. */
@@ -68,7 +69,7 @@ private:
 		Message<A> message;
 
 		/** The function to be called when the response arrives. */
-		CallbackFunction callback;
+		CallbackSet callback;
 
 		/** The time at which this message was last sent. */
 		Time timeSent;
@@ -79,15 +80,18 @@ private:
 		/** The number of times we have retried. */
 		unsigned long retries;
 
-		/** Should we retry after timeout or just give up? */
-		bool doRetry;
+		/** How many times to retry before giving up? */
+		unsigned long maxRetries;
 
 		SentMessage() = default;
-                SentMessage(Message<A> m, CallbackFunction cbf, Time time,
-                            unsigned long timeout, bool doRetry)
+                SentMessage(Message<A> m, CallbackSet cbf, Time time,
+                            unsigned long timeout, unsigned int maxRetries)
 			: message(m), callback(cbf), timeSent(time),
-			  nextSend(time + timeout), retries(0), doRetry(doRetry) {}
+			  nextSend(time + timeout), retries(0), maxRetries(maxRetries) {}
 
+		bool needsRetry() {
+			return this->retries < this->maxRetries;
+		}
 		/**
 		 * Record a retry.
 		 * @param time The time of retry.
@@ -100,7 +104,13 @@ private:
 			this->retries++;
 		}
 
-		void resolve() {this->callback(this->message);}
+		void success() {
+			this->callback.success(this->message);
+		}
+
+		void failure() {
+			this->callback.failure(this->message);
+		}
 	};
 
 	void attemptRetry(SentMessage record);
@@ -172,23 +182,37 @@ template <typename A> void BaseApplication<A>::tick(Time time) {
 
 	// Check for messages whose responses are overdue
 	auto it = this->callbacks.begin();
-	for ( ; it != this->callbacks.end(); it++) {
+	for ( ; it != this->callbacks.end(); ) {
 		auto& [idx, record] = *it;
 		// Is the message overdue for re-sending?
 		if (this->epoch >= record.nextSend) {
-			this->attemptRetry(record);
+			if (record.needsRetry()) {
+				this->attemptRetry(record);
+			} else {
+				record.failure();
+				it = this->callbacks.erase(it);
+				continue;
+			}
 		}
+
+		it++;
 	}
 	
 }
-	
-template <typename A> void BaseApplication<A>::send(Message<A> m, std::optional<CallbackFunction> callback, bool retry, unsigned long timeout) {
+
+template <typename A> void BaseApplication<A>::send(
+	Message<A> m,
+	BaseApplication<A>::CallbackSet callback,
+	unsigned int maxRetries,
+	unsigned long timeout) {
+
 	if (timeout == 0) {
 		// Use default value
 		timeout = this->defaultTimeout;
 	}
-	if (callback.has_value()) {
-		SentMessage sentmsg(m, *callback, this->epoch, timeout, retry);
+
+	if (!callback.isEmpty()) {
+		SentMessage sentmsg(m, callback, this->epoch, timeout, maxRetries);
 		this->callbacks[m.tag] = sentmsg;
 	}
 
@@ -200,7 +224,7 @@ template <typename A> void BaseApplication<A>::handleMessage(Message<A> m) {
 	auto it = this->callbacks.find(tag);
 	if (it != this->callbacks.end()) {
 		auto [tag, sentrecord] = *it;
-		sentrecord.resolve();
+		sentrecord.success();
 		this->callbacks.erase(it);
 	}
 }

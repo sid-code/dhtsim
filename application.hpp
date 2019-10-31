@@ -18,7 +18,7 @@ namespace dhtsim {
  * an instance of a subclass of this class.
  */
 template <typename A> class Application {
-	using CallbackFunction = std::function<void(Message<A>)>;
+	using Fn = std::function<void(Message<A>)>;
 private:
 	// RNG stuff
 	std::random_device dev;
@@ -28,6 +28,45 @@ protected:
 	A address = 0;
 	unsigned long randomTag();
 public:
+        class CallbackSet
+	{
+	public:
+		// Main constructors
+		CallbackSet() = default;
+		CallbackSet(std::optional<Fn> successFn,
+		            std::optional<Fn> failureFn)
+			: successFn(successFn),
+			  failureFn(failureFn) {};
+		CallbackSet(const CallbackSet& other) = default;
+		~CallbackSet() = default;
+
+		// Static constructors
+		static CallbackSet onSuccess(Fn fn) {
+			return CallbackSet(fn, std::nullopt);
+		}
+		static CallbackSet onError(Fn fn) {
+			return CallbackSet(std::nullopt, fn);
+		}
+
+		void success(Message<A> m) {
+			if (this->successFn.has_value()) {
+				(*this->successFn)(m);
+			}
+		}
+		void failure(Message<A> m) {
+			if (this->failureFn.has_value()) {
+				(*this->failureFn)(m);
+			}
+		}
+
+		bool isEmpty() {
+			return this->successFn == std::nullopt &&
+				this->failureFn == std::nullopt;
+		}
+	private:
+		std::optional<Fn> successFn = std::nullopt;
+		std::optional<Fn> failureFn = std::nullopt;
+	};
 	Application();
 	virtual ~Application() = default;
 
@@ -37,8 +76,8 @@ public:
 	 * network.
 	 */
 	virtual void send(Message<A> m,
-	                  std::optional<CallbackFunction> callback = std::nullopt,
-	                  bool retry = true,
+	                  CallbackSet callback = CallbackSet(),
+	                  unsigned int maxRetries = 16,
 	                  unsigned long timeout = 0) = 0;
 
 	/** Receive a message. This is called by the network. */

@@ -30,11 +30,12 @@ int main() {
 			auto addr = apps[1]->getAddress();
 			apps[0]->ping(
 				addr,
+				Application<uint32_t>::CallbackSet::onSuccess(
 				[](auto m){
 					(void)m;
 					std::clog<<"GOT BACK PONG"<<std::endl;
-				});
-		}
+				}));
+                }
 		tick++;
 	}
 }
