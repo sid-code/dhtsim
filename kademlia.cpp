@@ -221,7 +221,7 @@ void KademliaNode::tick(Time time) {
 
 static void sortByDistanceTo(const KademliaNode::Key& target,
                              std::vector<KademliaNode::BucketEntry>& bucket) {
-	
+
         auto cmp_fn = [target](const KademliaNode::BucketEntry &e1,
                             const KademliaNode::BucketEntry &e2) {
 	                      return key_distance_cmp(target, e1.key, e2.key);
@@ -322,7 +322,7 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 		if (nf.seen.find(entry.key) == nf.seen.end()) {
 			nf.uncontacted.push_back(entry);
 			nf.seen.insert(entry.key);
-		} 
+		}
 	}
 
 	// Stopping condition
@@ -492,7 +492,7 @@ void KademliaNode::updateOrAddToBucket(unsigned bucket_index, BucketEntry new_en
 	if (bucket_index == KEY_LEN_BITS) {
 		return;
 	}
-		
+
 	auto& bucket = this->buckets[bucket_index];
 
 	// Case 1: We have already seen the key of the new entry: we
@@ -554,7 +554,7 @@ void KademliaNode::updateOrAddToBucket(unsigned bucket_index, BucketEntry new_en
 			        this->buckets[bucket_index].begin());
 		        this->buckets[bucket_index].push_back(new_entry);
 		};
-	
+
         this->send(msg, CallbackSet(cbSuccess, cbFail));
 }
 
