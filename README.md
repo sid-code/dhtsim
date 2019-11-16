@@ -2,8 +2,16 @@
 
 This is an abstract network simulator created for the purpuse of
 simulating distributed hash tables. It is written in C++17 and depends
-on the standard library and ssl (for the SHA1 function). Either
-`clang` or `g++` can be used to compile it.
+on the standard library, ssl (for the SHA1 function), and libnop (for
+serialization, provided in submodule). Either `clang` or `g++` can be
+used to compile it.
+
+This repository should be cloned with the `--recursive` flag to also
+grab the submodules.
+
+```bash
+$ git clone https://github.com/sid-code/dhtsim --recursive
+```
 
 ## The network
 
