@@ -15,11 +15,42 @@
 
 namespace dhtsim {
 
+static const unsigned int KADEMLIA_KEY_LEN = SHA_DIGEST_LENGTH;
+
+struct KademliaKey {
+	unsigned char key[KADEMLIA_KEY_LEN];
+	friend bool operator==(const KademliaKey& l, const KademliaKey& r) {
+		return memcmp(&l.key, &r.key, KADEMLIA_KEY_LEN) == 0;
+	}
+	friend bool operator<(const KademliaKey& l, const KademliaKey& r) {
+		return memcmp(&l.key, &r.key, KADEMLIA_KEY_LEN) < 0;
+	}
+	friend bool operator>(const KademliaKey& l, const KademliaKey& r) {
+		return memcmp(&l.key, &r.key, KADEMLIA_KEY_LEN) > 0;
+	}
+	friend std::ostream &operator<<(std::ostream &os,
+					const KademliaKey &key) {
+		const unsigned PRINT_MAX = 4;
+		unsigned i;
+		for (i = 0; i < PRINT_MAX; i++) {
+			os << std::hex << (int)key.key[i];
+			os << std::dec;
+		}
+		return os;
+	}
+};
+
 /**
  * A distributed hash table node in a network where addresses are 32
  * bits.
+ *
+ * We inherit from BaseApplication<> for the simple message passing
+ * and receiving capabilities. We also inherit from
+ * Application<>::DHTNode<> to provide an abstraction for the DHT.
  */
-class KademliaNode : public BaseApplication<uint32_t> {
+class KademliaNode
+    : public BaseApplication<uint32_t>,
+      public Application<uint32_t>::DHTNode<KademliaKey, std::vector<unsigned char>> {
 public:
 	struct BucketEntry;
 
@@ -34,35 +65,17 @@ public:
 	using FindValueCallbackSet = Application<uint32_t>::CallbackSet<void, void>;
 	using StoreCallbackSet = Application<uint32_t>::CallbackSet<void, void>;
 
+	/* Aliases for the DHTNode callback types */
+	using GetCallbackSet = Application<uint32_t>::DHTNode<KademliaKey, std::vector<unsigned char>>::GetCallbackSet;
+
 	/* As per kademlia, the key length is the length of the SHA1
 	 * digest */
-	static const unsigned int KEY_LEN = SHA_DIGEST_LENGTH;
+	static const unsigned int KEY_LEN = KADEMLIA_KEY_LEN;
 	static const unsigned int KEY_LEN_BITS = KEY_LEN * 8;
 
 	/** A node key. As per Kademlia, this is 160 bits and
 	 * calculated y SHA1. */
-	struct Key {
-		unsigned char key[KEY_LEN];
-		friend bool operator==(const Key& l, const Key& r) {
-			return memcmp(&l.key, &r.key, KEY_LEN) == 0;
-		}
-		friend bool operator<(const Key& l, const Key& r) {
-			return memcmp(&l.key, &r.key, KEY_LEN) < 0;
-		}
-		friend bool operator>(const Key& l, const Key& r) {
-			return memcmp(&l.key, &r.key, KEY_LEN) > 0;
-		}
-		friend std::ostream &operator<<(std::ostream &os,
-		                                const KademliaNode::Key &key) {
-			const unsigned PRINT_MAX = 4;
-			unsigned i;
-			for (i = 0; i < PRINT_MAX; i++) {
-				os << std::hex << (int)key.key[i];
-				os << std::dec;
-			}
-			return os;
-		}
-        };
+	using Key = KademliaKey;
 
 	/* The message types */
 	enum MessageType {
@@ -111,6 +124,11 @@ public:
 
 	virtual void tick(Time time);
 	virtual void handleMessage(const Message<uint32_t>& m);
+
+	/* High level DHT node functions */
+	virtual Key put(const std::vector<unsigned char>& v);
+	virtual void get(const Key& k, GetCallbackSet callback);
+	virtual Key getKey(const std::vector<unsigned char>& value);
 
         /* RPCS */
 

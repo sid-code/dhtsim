@@ -566,3 +566,17 @@ void KademliaNode::observe(uint32_t other_address, const KademliaNode::Key& othe
 	entry.lastSeen = this->epoch;
 	updateOrAddToBucket(which_bucket, entry);
 }
+
+void KademliaNode::get(const Key& stored_key, GetCallbackSet callback) {
+	(void) stored_key;
+	(void) callback;
+}
+KademliaKey KademliaNode::put(const std::vector<unsigned char>& value) {
+	(void) value;
+        return {0};
+}
+KademliaKey KademliaNode::getKey(const std::vector<unsigned char>& value) {
+	KademliaKey result;
+	SHA1(&value[0], value.size(), result.key);
+	return result;
+}
