@@ -206,6 +206,10 @@ template <typename A> void BaseApplication<A>::send(
 	unsigned int maxRetries,
 	unsigned long timeout) {
 
+	if (m.tag == 0) {
+		m.tag = this->randomTag();
+	}
+
 	if (timeout == 0) {
 		// Use default value
 		timeout = this->defaultTimeout;
