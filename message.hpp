@@ -23,8 +23,6 @@ public:
 	        unsigned long tag, std::vector<unsigned char> data)
             : type(type), originator(originator), destination(destination),
               tag(tag), hops(0), data(data) {}
-
-	Message(const Message& other) = default;
 };
 
 }
