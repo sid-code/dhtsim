@@ -1,11 +1,11 @@
-SOURCES = $(wildcard *.cpp)
-HEADERS = $(wildcard *.hpp)
+SOURCES = $(wildcard *.cpp) $(wildcard kademlia/*.cpp)
+HEADERS = $(wildcard *.hpp) $(wildcard kademlia/*.hpp)
 
 OBJECTS = $(SOURCES:%.cpp=%.o)
 PROGRAM = $(shell basename `pwd`)
 
 CC := $(shell which gcc || which clang)
-CFLAGS = -g -O0 -Wall -Wextra -pedantic -W -fno-exceptions -fno-rtti --std=c++17
+CFLAGS = -g -O0 -Wall -Wextra -pedantic -W -fno-exceptions -fno-rtti --std=c++17 -I.
 LIBS = stdc++ m ssl crypto
 LDFLAGS = $(LIBS:%=-l%)
 

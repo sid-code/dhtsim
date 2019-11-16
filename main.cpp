@@ -5,7 +5,7 @@
 #include "network.hpp"
 #include "application.hpp"
 #include "base.hpp"
-#include "kademlia.hpp"
+#include "kademlia/kademlia.hpp"
 
 
 using namespace dhtsim;
