@@ -133,7 +133,7 @@ public:
         /* RPCS */
 
 	void findNodes(const Key& target, FindNodesCallbackSet callback);
-	void findValue(const Key& target, FindValueCallbackSet callback);
+	void findValue(const Key& target, const Key& stored_key, FindValueCallbackSet callback);
 	void store(const Key& target, std::vector<unsigned char> data,
 	           StoreCallbackSet callback);
 	void ping(uint32_t target_address, PingCallbackSet callback);
