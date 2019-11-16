@@ -10,8 +10,6 @@
 #include <memory>
 
 namespace dhtsim {
-
-
 /**
  * A simple abstract network. It is parametrized by a numeric type A,
  * which will be the address space. Applications will live in this
@@ -22,7 +20,7 @@ private:
 	std::map<A, std::shared_ptr<Application<A>>> inhabitants;
 	std::random_device dev;
 	std::mt19937 rng;
-	A getNewAddress();
+        A getNewAddress();
 	Time epoch;
 public:
 	// The bytes-per-tick limit of a single link on this network
