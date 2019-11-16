@@ -18,7 +18,6 @@ namespace dhtsim {
  * an instance of a subclass of this class.
  */
 template <typename A> class Application {
-	using Fn = std::function<void(Message<A>)>;
 private:
 	// RNG stuff
 	std::random_device dev;
@@ -28,44 +27,48 @@ protected:
 	A address = 0;
 	unsigned long randomTag();
 public:
-        class CallbackSet
+	template <typename SuccessParameter = Message<A>,
+	          typename FailureParameter = SuccessParameter>
+	class CallbackSet
 	{
 	public:
+		using SuccessFn = std::function<void(SuccessParameter)>;
+		using FailureFn = std::function<void(FailureParameter)>;
 		// Main constructors
 		CallbackSet() = default;
-		CallbackSet(std::optional<Fn> successFn,
-		            std::optional<Fn> failureFn)
+		CallbackSet(std::optional<SuccessFn> successFn,
+		            std::optional<FailureFn> failureFn)
 			: successFn(successFn),
 			  failureFn(failureFn) {};
 		CallbackSet(const CallbackSet& other) = default;
 		~CallbackSet() = default;
 
 		// Static constructors
-		static CallbackSet onSuccess(Fn fn) {
+		static CallbackSet onSuccess(SuccessFn fn) {
 			return CallbackSet(fn, std::nullopt);
 		}
-		static CallbackSet onError(Fn fn) {
+		static CallbackSet onFailure(FailureFn fn) {
 			return CallbackSet(std::nullopt, fn);
 		}
 
-		void success(Message<A> m) {
+		void success(SuccessParameter m) const {
 			if (this->successFn.has_value()) {
 				(*this->successFn)(m);
 			}
 		}
-		void failure(Message<A> m) {
+		void failure(FailureParameter m) const {
 			if (this->failureFn.has_value()) {
 				(*this->failureFn)(m);
 			}
 		}
 
-		bool isEmpty() {
+		bool isEmpty() const {
 			return this->successFn == std::nullopt &&
 				this->failureFn == std::nullopt;
 		}
 	private:
-		std::optional<Fn> successFn = std::nullopt;
-		std::optional<Fn> failureFn = std::nullopt;
+		std::optional<SuccessFn> successFn = std::nullopt;
+		std::optional<FailureFn> failureFn = std::nullopt;
 	};
 	Application();
 	virtual ~Application() = default;
@@ -76,7 +79,7 @@ public:
 	 * network.
 	 */
 	virtual void send(Message<A> m,
-	                  CallbackSet callback = CallbackSet(),
+	                  CallbackSet<> callback = CallbackSet<>(),
 	                  unsigned int maxRetries = 16,
 	                  unsigned long timeout = 0) = 0;
 

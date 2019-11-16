@@ -13,10 +13,10 @@
 namespace dhtsim {
 template <typename A> class BaseApplication : public Application<A> {
 public:
-	using CallbackSet = typename Application<A>::CallbackSet;
+	using CallbackSet = typename Application<A>::template CallbackSet<>;
 	virtual void recv(Message<A> m) { this->queueIn(m); }
 	virtual std::optional<Message<A>> unqueueOut();
-	virtual void handleMessage(Message<A> m);
+	virtual void handleMessage(const Message<A>& m);
 	virtual void tick(Time time);
         /**
          * Send a message.
@@ -104,8 +104,8 @@ private:
 			this->retries++;
 		}
 
-		void success() {
-			this->callback.success(this->message);
+		void success(Message<A> m) {
+			this->callback.success(m);
 		}
 
 		void failure() {
@@ -171,10 +171,10 @@ template <typename A> void BaseApplication<A>::tick(Time time) {
 	// handle inbound messages
 	while (!this->inqueue.empty()) {
 		auto message = this->inqueue.front();
-		std::clog << this->getAddress()
-		          << " got a message from "
-		          << message.originator
-		          << " tagged " << message.tag << std::endl;
+		// std::clog << this->getAddress()
+		//           << " got a message from "
+		//           << message.originator
+		//           << " tagged " << message.tag << std::endl;
 		this->inqueue.pop();
 
 		this->handleMessage(message);
@@ -219,12 +219,12 @@ template <typename A> void BaseApplication<A>::send(
 	this->queueOut(m);
 }
 
-template <typename A> void BaseApplication<A>::handleMessage(Message<A> m) {
+template <typename A> void BaseApplication<A>::handleMessage(const Message<A>& m) {
 	auto tag = m.tag;
 	auto it = this->callbacks.find(tag);
 	if (it != this->callbacks.end()) {
 		auto [tag, sentrecord] = *it;
-		sentrecord.success();
+		sentrecord.success(m);
 		this->callbacks.erase(it);
 	}
 }
