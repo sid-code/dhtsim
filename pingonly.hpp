@@ -17,15 +17,15 @@ enum PingMessageType {
 
 template <typename A> class PingOnlyApplication : public BaseApplication<A> {
 public:
-	using CallbackSet = typename Application<A>::CallbackSet;
+	using MessageCallbackSet = typename Application<A>::template CallbackSet<>;
 	PingOnlyApplication(){};
-	void ping(A other, CallbackSet callback = CallbackSet());
-	virtual void handleMessage(Message<A> m);
+	void ping(A other, MessageCallbackSet callback = MessageCallbackSet());
+	virtual void handleMessage(const Message<A>& m);
 	virtual ~PingOnlyApplication(){};
 
 };
 
-template <typename A> void PingOnlyApplication<A>::ping(A other, CallbackSet callback) {
+template <typename A> void PingOnlyApplication<A>::ping(A other, MessageCallbackSet callback) {
 	auto tag = this->randomTag();
 	std::vector<unsigned char> data;
 	Message<A> m(PM_PING, this->getAddress(), other, tag, data);
@@ -33,15 +33,16 @@ template <typename A> void PingOnlyApplication<A>::ping(A other, CallbackSet cal
 }
 
 
-template <typename A> void PingOnlyApplication<A>::handleMessage(Message<A> m) {
+template <typename A> void PingOnlyApplication<A>::handleMessage(const Message<A>& m) {
 	BaseApplication<A>::handleMessage(m);
+	auto resp = m;
 	switch (m.type) {
 	case PM_PING:
-		// Received a ping! Send a message back.
-		m.type = PM_PONG;
-		m.destination = m.originator;
-		m.originator = this->getAddress();
-		this->send(m);
+		// Rhandle_messageg! Send a message back.
+		resp.type = PM_PONG;
+		resp.destination = m.originator;
+		resp.originator = this->getAddress();
+		this->send(resp);
 		break;
 	case PM_PONG:
 		// Received a pong.
