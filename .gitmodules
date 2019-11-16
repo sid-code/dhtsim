@@ -1,0 +1,3 @@
+[submodule "libnop"]
+	path = libnop
+	url = git@github.com:google/libnop
