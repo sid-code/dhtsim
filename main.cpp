@@ -1,41 +1,67 @@
+#include <iostream>
+#include <chrono>
+#include <thread>
 
 #include "network.hpp"
 #include "application.hpp"
 #include "base.hpp"
-#include "pingonly.hpp"
+#include "kademlia.hpp"
 
 
 using namespace dhtsim;
 
+void test_rw();
+
 int main() {
+	std::cout << "[testing read/writes]" << std::endl;
+	test_rw();
 	std::cout << "[startup]" << std::endl;
-	CentralizedNetwork<uint32_t> net(10);
+	CentralizedNetwork<uint32_t> net(1024000);
 	unsigned int tick = 0;
 
-	unsigned int nodes = 2, i;
+	unsigned int n_nodes = 200, i;
 
-	std::vector<std::shared_ptr<PingOnlyApplication<uint32_t>>> apps;
-	for (i = 0; i < nodes; i++) {
-		auto app = std::make_shared<PingOnlyApplication<uint32_t>>();
-		apps.push_back(app);
-		net.add(app);
-		std::clog << "App " << i << " address: " << app->getAddress()
+	std::vector<std::shared_ptr<KademliaNode>> nodes;
+	for (i = 0; i < n_nodes; i++) {
+		auto node = std::make_shared<KademliaNode>();
+		nodes.push_back(node);
+		net.add(node);
+		std::clog << "Node " << i << " address: " << node->getAddress()
+		          << std::endl;
+		std::clog << "Node " << i << " key: " << node->getKey()
 		          << std::endl;
 
 	}
 
-	while (true) {
+	for (i = 1; i < n_nodes; i++) {
+		nodes[i]->ping(nodes[0]->getAddress(),
+		               KademliaNode::PingCallbackSet());
+	}
+
+
+	bool done = false;
+	while (!done) {
 		net.tick();
-		if (tick == 10) {
-			auto addr = apps[1]->getAddress();
-			apps[0]->ping(
-				addr,
-				Application<uint32_t>::CallbackSet::onSuccess(
-				[](auto m){
-					(void)m;
-					std::clog<<"GOT BACK PONG"<<std::endl;
-				}));
-                }
 		tick++;
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+		if (tick % 20 == 0) {
+			nodes[1]->findNodes(
+				nodes[2]->getKey(),
+				KademliaNode::FindNodesCallbackSet::onSuccess(
+					[&done](std::vector<KademliaNode::BucketEntry> results) {
+						std::cout << results.size()
+						          << " results."
+						          << std::endl;
+						for (const auto& entry : results) {
+							std::cout << entry.address << " "
+							          << entry.key << std::endl;
+
+						}
+						done = true;
+
+					}));
+			
+		}
 	}
 }
