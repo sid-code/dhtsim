@@ -127,7 +127,8 @@ private:
 	/** Called every time we see another node */
 	void updateOrAddToBucket(unsigned bucket_index, BucketEntry entry);
 
-	void getNearest(unsigned n, const Key& key, std::vector<BucketEntry>& out);
+	std::vector<BucketEntry> getNearest(unsigned n, const Key& key);
+	std::vector<BucketEntry> getNearest(unsigned n, const Key& key, const Key& exclude);
 
 	/** findNodes helpers */
 	std::map<Key, NodeFinder> nodes_being_found;

@@ -242,20 +242,29 @@ static void sortByDistanceTo(const KademliaNode::Key& target,
 // 	entries.push_back(entry);
 // }
 
-void KademliaNode::getNearest(unsigned n, const KademliaNode::Key& target,
-			      std::vector<KademliaNode::BucketEntry>& out) {
-	std::vector<KademliaNode::BucketEntry> entries;
+std::vector<KademliaNode::BucketEntry> KademliaNode::getNearest(
+	unsigned n, const Key& target) {
+	return this->getNearest(n, target, this->getKey());
+}
+
+std::vector<KademliaNode::BucketEntry> KademliaNode::getNearest(
+	unsigned n, const Key& target, const Key& exclude) {
+
+	std::vector<KademliaNode::BucketEntry> entries, result;
 	unsigned i;
 	for (i = 0; i < KEY_LEN; i++) {
 		for (const auto &entry : this->buckets[i]) {
-			entries.push_back(entry);
+			if (!(entry.key == exclude)) {
+				entries.push_back(entry);
+			}
 		}
 	}
 	sortByDistanceTo(target, entries);
 	for (i = 0; i < entries.size(); i++) {
 		if (i >= n) break;
-		out.push_back(entries[i]);
+		result.push_back(entries[i]);
 	}
+	return result;
 }
 
 void KademliaNode::ping(uint32_t other_address, PingCallbackSet callback) {
@@ -378,14 +387,14 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 	this->send(m, CallbackSet::onSuccess(cbSuccess));
 }
 void KademliaNode::findNodesStart(const Key& target) {
-	std::vector<BucketEntry> nearest;
-	this->getNearest(this->k, target, nearest);
+	auto nearest = this->getNearest(this->k, target);
 	this->findNodesStep(target, nearest);
 }
 void KademliaNode::findNodesFinish(const Key& target) {
 	auto nf_it = this->nodes_being_found.find(target);
 	sortByDistanceTo(target, nf_it->second.contacted);
 	nf_it->second.callback.success(nf_it->second.contacted);
+	std::cout << "Erased " << target << std::endl;
 	this->nodes_being_found.erase(target);
 }
 
@@ -393,7 +402,8 @@ void KademliaNode::findNodes(const Key& target, FindNodesCallbackSet callback) {
 	std::vector<BucketEntry> start_nodes;
 	if (this->nodes_being_found.find(target) != this->nodes_being_found.end()) {
 		std::clog << "[" << this->getKey()
-		          << "] Ignoring duplicate findNodes call."
+		          << "] Ignoring duplicate findNodes call to "
+		          << target
 		          << std::endl;
 		return;
 	}
@@ -452,8 +462,7 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 			          << this->getKey() << ".find_nodes(" << fm.target << ")"
 			          << std::endl;
 
-			std::vector<KademliaNode::BucketEntry> entries;
-			this->getNearest(this->k, fm.target, entries);
+			auto entries = this->getNearest(this->k, fm.target, fm.sender);
 
 			fm.request = 0;
 			fm.sender = this->getKey();
