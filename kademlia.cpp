@@ -67,12 +67,24 @@ struct PingMessage {
 		return PingMessage(false);
 	}
 };
+
 struct FindNodesMessage {
-	bool request;
 	KademliaNode::Key sender;
+
+	bool request; // is this a request or response?
+	bool find_value = false; // is this a find_value request?
+
+	// The key we're searching for. This can either be the key of
+	// a node we want or the key of a value we want.
 	KademliaNode::Key target;
+
+	// For finding nodes:
 	uint32_t num_found;
 	std::vector<KademliaNode::BucketEntry> nearest;
+	// For finding values:
+	bool value_found = false; // was a value found?
+	std::vector<unsigned char> value; // the value that was found
+
 	FindNodesMessage() = default;
 };
 
@@ -81,6 +93,14 @@ static void write(std::vector<unsigned char>::iterator& it, bool x) {
 	it++;
 }
 static void read(std::vector<unsigned char>::const_iterator& it, bool& x) {
+	x = *it;
+	it++;
+}
+static void write(std::vector<unsigned char>::iterator& it, unsigned char x) {
+	*it = x;
+	it++;
+}
+static void read(std::vector<unsigned char>::const_iterator& it, unsigned char& x) {
 	x = *it;
 	it++;
 }
@@ -117,6 +137,23 @@ static void read(std::vector<unsigned char>::const_iterator& it, uint64_t& x) {
 	x |= (uint64_t) (*it++) << (8*5);
 	x |= (uint64_t) (*it++) << (8*6);
 	x |= (uint64_t) (*it++) << (8*7);
+}
+static void write(std::vector<unsigned char>::iterator& it,
+                  const std::vector<unsigned char>& data) {
+	write(it, (uint32_t) data.size());
+	for (auto c : data) {
+		write(it, c);
+	}
+}
+static void read(std::vector<unsigned char>::const_iterator& it,
+		 std::vector<unsigned char>& data) {
+
+	uint32_t i, size;
+	read(it, size);
+	data.resize(size);
+	for (i = 0; i < size; i++) {
+		read(it, data[i]);
+	}
 }
 static void write(std::vector<unsigned char>::iterator& it, const KademliaNode::Key& key) {
 	std::copy(key.key,
