@@ -46,6 +46,7 @@ int main() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		if (tick % 20 == 0) {
+			nodes[2]->die();
 			nodes[1]->findNodes(
 				nodes[2]->getKey(),
 				KademliaNode::FindNodesCallbackSet::onSuccess(
@@ -58,7 +59,6 @@ int main() {
 							          << entry.key << std::endl;
 
 						}
-						done = true;
 
 					}));
 			

@@ -29,9 +29,14 @@ public:
 	                  CallbackSet callback = CallbackSet(),
                           unsigned int maxRetries = 16,
                           unsigned long timeout = 0);
+
+        virtual void die() { this->dead = true; }
 protected:
         /** The current network's time. */
         Time epoch;
+
+	/** Is this node dead? */
+	bool dead = false;
 
 	std::queue<Message<A>> inqueue, outqueue;
 	void queueIn(Message<A> m);
@@ -165,6 +170,9 @@ template <typename A> void BaseApplication<A>::attemptRetry(SentMessage record) 
 }
 
 template <typename A> void BaseApplication<A>::tick(Time time) {
+	// Dead nodes send no messages.
+	if (this->dead) return;
+
 	// Update our record of the time.
 	this->epoch = time;
 

@@ -105,6 +105,11 @@ public:
 	 */
 	void setAddress(A newAddress) { this->address = newAddress; }
         A getAddress() { return this->address; }
+
+	/**
+	 * Kill this node. It will no longer do anything.
+	 */
+	virtual void die() = 0;
 };
 
 template <typename A> Application<A>::Application() {
