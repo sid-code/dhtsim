@@ -39,6 +39,8 @@ public:
 	static const unsigned int KEY_LEN = SHA_DIGEST_LENGTH;
 	static const unsigned int KEY_LEN_BITS = KEY_LEN * 8;
 
+	/** A node key. As per Kademlia, this is 160 bits and
+	 * calculated y SHA1. */
 	struct Key {
 		unsigned char key[KEY_LEN];
 		friend bool operator==(const Key& l, const Key& r) {
@@ -62,7 +64,7 @@ public:
 		}
         };
 
-	/* The message typees */
+	/* The message types */
 	enum MessageType {
 		KM_PING, KM_FIND_NODES, KM_FIND_VALUE, KM_STORE
 	};
@@ -82,16 +84,20 @@ public:
 		}
 	};
 
+	/**
+	 * A node finder. This is used by the find_nodes operation to
+	 * keep track of progress.
+	 */
 	struct NodeFinder {
 		NodeFinder() = default;
 		NodeFinder(Key target, FindNodesCallbackSet callback)
 			: target(target), callback(callback) {};
-		Key target;
-		FindNodesCallbackSet callback;
+		Key target; // the key of the node being searched for
+		FindNodesCallbackSet callback; // the callback set to call when done
 		uint32_t waiting = 0; // number of recursive find nodes pending
-		std::vector<BucketEntry> uncontacted;
-		std::vector<BucketEntry> contacted;
-		std::set<Key> seen;
+		std::vector<BucketEntry> uncontacted; // nodes yet to contact
+		std::vector<BucketEntry> contacted; // nodes to be returned
+		std::set<Key> seen; // nodes already seen
 	};
 
 
@@ -106,7 +112,7 @@ public:
 	virtual void tick(Time time);
 	virtual void handleMessage(const Message<uint32_t>& m);
 
-	/* RPCS */
+        /* RPCS */
 
 	void findNodes(const Key& target, FindNodesCallbackSet callback);
 	void findValue(const Key& target, FindValueCallbackSet callback);
@@ -115,9 +121,10 @@ public:
 	void ping(uint32_t target_address, PingCallbackSet callback);
 	void observe(uint32_t other_address, const Key& other_key);
 private:
-	// How many entries in each routing bucket?
+	/** How many entries in each routing bucket? */
 	const unsigned k = 10;
-	// FIND_NODES concurrency parameter.
+
+	/** FIND_NODES concurrency parameter. */
 	const unsigned alpha = 3;
 
 	Key key;
