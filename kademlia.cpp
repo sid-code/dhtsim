@@ -373,15 +373,16 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 	m.data = data;
 
 	// lambda captures kept to a minimum
-	auto cbSuccess = 
+	auto cbSuccess =
 		[this, target, top](Message<uint32_t> m) {
 			FindNodesMessage fm;
 			std::vector<unsigned char>::const_iterator it = m.data.begin();
-			read(it, fm);
 			auto nf_it = this->nodes_being_found.find(target);
+			if (nf_it == this->nodes_being_found.end()) return;
 			auto& nf = nf_it->second;
 			nf.contacted.push_back(top);
                         nf.waiting--;
+			read(it, fm);
 			this->findNodesStep(target, fm.nearest);
 		};
 	this->send(m, CallbackSet::onSuccess(cbSuccess));
