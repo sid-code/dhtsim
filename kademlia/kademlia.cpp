@@ -8,6 +8,9 @@
 #include <queue>
 #include <openssl/sha.h>
 
+#include <nop/structure.h>
+#include <nop/serializer.h>
+
 using namespace dhtsim;
 
 KademliaNode::KademliaNode() {
@@ -66,6 +69,8 @@ struct PingMessage {
 	static PingMessage pong() {
 		return PingMessage(false);
 	}
+
+	NOP_STRUCTURE(PingMessage, ping_or_pong, sender);
 };
 
 struct FindNodesMessage {
