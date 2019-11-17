@@ -46,8 +46,8 @@ private:
 	/* This section is for variables that configure this
 	 * application's network behavior. */
 
-	const unsigned int inqueueLimit = 1024;
-	const unsigned int outqueueLimit = 1024;
+	const unsigned int inqueueLimit = 1 << 20;
+	const unsigned int outqueueLimit = 1 << 20;
 
 
 
