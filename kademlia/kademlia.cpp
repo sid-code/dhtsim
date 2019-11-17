@@ -6,10 +6,14 @@
 #include <vector>
 #include <map>
 #include <queue>
+#include <sstream>
+
 #include <openssl/sha.h>
 
 #include <nop/structure.h>
 #include <nop/serializer.h>
+#include <nop/utility/stream_reader.h>
+#include <nop/utility/stream_writer.h>
 
 using namespace dhtsim;
 
@@ -58,6 +62,21 @@ static bool key_distance_cmp(const KademliaNode::Key& target,
 	return false;
 }
 
+template <typename T> static void writeToMessage(T msg_data, Message<uint32_t>& m) {
+	nop::Serializer<nop::StreamWriter<std::stringstream>> serializer;
+	serializer.Write(msg_data);
+	const std::string data = serializer.writer().take().str();
+	m.data.resize(data.length());
+	std::copy(data.begin(), data.end(), m.data.begin());
+}
+template <typename T> static void readFromMessage(T& msg_data, const Message<uint32_t>& m) {
+	std::string data(m.data.begin(), m.data.end());
+	std::stringstream ss;
+	ss.str(data);
+	nop::Deserializer<nop::StreamReader<std::stringstream>> deserializer{std::move(ss)};
+	deserializer.Read(&msg_data);
+}
+
 struct PingMessage {
         bool ping_or_pong;
 	KademliaNode::Key sender;
@@ -69,6 +88,7 @@ struct PingMessage {
 	static PingMessage pong() {
 		return PingMessage(false);
 	}
+	PingMessage() = default;
 
 	NOP_STRUCTURE(PingMessage, ping_or_pong, sender);
 };
@@ -91,171 +111,52 @@ struct FindNodesMessage {
 	std::vector<unsigned char> value; // the value that was found
 
 	FindNodesMessage() = default;
+
+	NOP_STRUCTURE(FindNodesMessage, sender, request, find_value, target, num_found, nearest, value_found, value);
+
 };
 
-static void write(std::vector<unsigned char>::iterator& it, bool x) {
-	*it = x;
-	it++;
-}
-static void read(std::vector<unsigned char>::const_iterator& it, bool& x) {
-	x = *it;
-	it++;
-}
-static void write(std::vector<unsigned char>::iterator& it, unsigned char x) {
-	*it = x;
-	it++;
-}
-static void read(std::vector<unsigned char>::const_iterator& it, unsigned char& x) {
-	x = *it;
-	it++;
-}
-static void write(std::vector<unsigned char>::iterator& it, uint32_t x) {
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-}
-static void read(std::vector<unsigned char>::const_iterator& it, uint32_t& x) {
-	x = 0;
-	x |= *it++;
-	x |= *it++ << 8;
-	x |= *it++ << (8*2);
-	x |= *it++ << (8*3);
-}
-static void write(std::vector<unsigned char>::iterator& it, uint64_t x) {
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-	*it++ = x & 0xFF; x >>= 8;
-}
-static void read(std::vector<unsigned char>::const_iterator& it, uint64_t& x) {
-	x = 0;
-	x |= (uint64_t) *it++;
-	x |= (uint64_t) (*it++) << 8;
-	x |= (uint64_t) (*it++) << (8*2);
-	x |= (uint64_t) (*it++) << (8*3);
-	x |= (uint64_t) (*it++) << (8*4);
-	x |= (uint64_t) (*it++) << (8*5);
-	x |= (uint64_t) (*it++) << (8*6);
-	x |= (uint64_t) (*it++) << (8*7);
-}
-static void write(std::vector<unsigned char>::iterator& it,
-                  const std::vector<unsigned char>& data) {
-	write(it, (uint32_t) data.size());
-	for (auto c : data) {
-		write(it, c);
-	}
-}
-static void read(std::vector<unsigned char>::const_iterator& it,
-		 std::vector<unsigned char>& data) {
 
-	uint32_t i, size;
-	read(it, size);
-	data.resize(size);
-	for (i = 0; i < size; i++) {
-		read(it, data[i]);
-	}
-}
-static void write(std::vector<unsigned char>::iterator& it, const KademliaNode::Key& key) {
-	std::copy(key.key,
-	          key.key + KademliaNode::KEY_LEN,
-	          it);
-	it += KademliaNode::KEY_LEN;
-}
-static void read(std::vector<unsigned char>::const_iterator& it, KademliaNode::Key& key) {
-	std::copy(it, it + KademliaNode::KEY_LEN, key.key);
-	it += KademliaNode::KEY_LEN;
-}
-static void write(std::vector<unsigned char>::iterator& it,
-                  const KademliaNode::BucketEntry& entry) {
-	write(it, entry.key);
-	write(it, entry.address);
-	write(it, entry.lastSeen);
-}
-static void read(std::vector<unsigned char>::const_iterator& it,
-		 KademliaNode::BucketEntry& entry) {
-	read(it, entry.key);
-	read(it, entry.address);
-	read(it, entry.lastSeen);
-}
-static void write(std::vector<unsigned char>::iterator& it,
-                  const PingMessage& pm) {
-	write(it, pm.ping_or_pong);
-	write(it, pm.sender);
-}
-static void read(std::vector<unsigned char>::const_iterator& it,
-		 PingMessage& pm) {
-	read(it, pm.ping_or_pong);
-	read(it, pm.sender);
-}
-static void write(std::vector<unsigned char>::iterator& it,
-                  const FindNodesMessage& fm) {
-	write(it, fm.request);
-	write(it, fm.sender);
-	write(it, fm.target);
-	write(it, fm.num_found);
-	unsigned i;
-	for (i = 0; i < fm.num_found; i++) {
-		write(it, fm.nearest[i]);
-	}
-}
-static void read(std::vector<unsigned char>::const_iterator& it,
-		 FindNodesMessage& fm) {
-	read(it, fm.request);
-	read(it, fm.sender);
-	read(it, fm.target);
-	read(it, fm.num_found);
-	unsigned i;
-	fm.nearest.resize(fm.num_found);
-	for (i = 0; i < fm.num_found; i++) {
-		read(it, fm.nearest[i]);
-	}
-}
-
-void test_rw() {
-	std::vector<unsigned char> data(256, 0);
-	std::vector<unsigned char>::iterator write_it = data.begin();
-	std::vector<unsigned char>::const_iterator read_it;
-
-	KademliaNode n;
-	FindNodesMessage fm, fm_copy;
-
-	fm.sender = n.getKey();
-	fm.target = n.getKey();
-	fm.num_found = 1;
-	auto entry = KademliaNode::BucketEntry();
-	entry.address = 2121212;
-	entry.key = n.getKey();
-	std::cout<<entry.key<<std::endl;
-	std::cout<<entry.address<<std::endl;
-	entry.lastSeen = 0;
-	fm.nearest.push_back(entry);
-	write(write_it, fm);
-	read_it = data.begin();
-	read(read_it, fm_copy);
-
-	if (fm.sender == fm_copy.sender) {
-		std::cout << "Test was a success." << std::endl;
-	} else {
-		std::cout << "Test was a failure." << std::endl;
-		std::cout << "Stored key: " << fm.sender << std::endl;
-		std::cout << "Read key:   " << fm_copy.sender << std::endl;
-		std::exit(EXIT_FAILURE);
-	}
-	if (fm.num_found == fm_copy.num_found) {
-		std::cout << "Test was a success." << std::endl;
-	} else {
-		std::cout << "Test was a failure." << std::endl;
-		std::cout << "Stored nr: " << fm.num_found << std::endl;
-		std::cout << "Read nr:   " << fm_copy.num_found << std::endl;
-		std::exit(EXIT_FAILURE);
-	}
-
-}
+//void test_rw() {
+//	std::vector<unsigned char> data(256, 0);
+//	std::vector<unsigned char>::iterator write_it = data.begin();
+//	std::vector<unsigned char>::const_iterator read_it;
+//
+//	KademliaNode n;
+//	FindNodesMessage fm, fm_copy;
+//
+//	fm.sender = n.getKey();
+//	fm.target = n.getKey();
+//	fm.num_found = 1;
+//	auto entry = KademliaNode::BucketEntry();
+//	entry.address = 2121212;
+//	entry.key = n.getKey();
+//	std::cout<<entry.key<<std::endl;
+//	std::cout<<entry.address<<std::endl;
+//	entry.lastSeen = 0;
+//	fm.nearest.push_back(entry);
+//	write(write_it, fm);
+//	read_it = data.begin();
+//	read(read_it, fm_copy);
+//
+//	if (fm.sender == fm_copy.sender) {
+//		std::cout << "Test was a success." << std::endl;
+//	} else {
+//		std::cout << "Test was a failure." << std::endl;
+//		std::cout << "Stored key: " << fm.sender << std::endl;
+//		std::cout << "Read key:   " << fm_copy.sender << std::endl;
+//		std::exit(EXIT_FAILURE);
+//	}
+//	if (fm.num_found == fm_copy.num_found) {
+//		std::cout << "Test was a success." << std::endl;
+//	} else {
+//		std::cout << "Test was a failure." << std::endl;
+//		std::cout << "Stored nr: " << fm.num_found << std::endl;
+//		std::cout << "Read nr:   " << fm_copy.num_found << std::endl;
+//		std::exit(EXIT_FAILURE);
+//	}
+//
+//}
 
 void KademliaNode::tick(Time time) {
 	BaseApplication<uint32_t>::tick(time);
@@ -315,8 +216,7 @@ void KademliaNode::ping(uint32_t other_address, PingCallbackSet callback) {
 	PingMessage pm = PingMessage::ping();
 	pm.sender = this->getKey();
 	m.data.resize(KEY_LEN + 20);
-	auto it = m.data.begin();
-	write(it, pm);
+	writeToMessage(pm, m);
 
 	auto cbSuccess = [callback](Message<uint32_t> m) {
 		                 (void) m;
@@ -408,23 +308,18 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 	fm.target = target;
 	fm.num_found = 0;
 
-	std::vector<unsigned char> data(64, 0);
-
-	auto data_it = data.begin();
-	write(data_it, fm);
-	m.data = data;
+	writeToMessage(fm, m);
 
 	// lambda captures kept to a minimum
 	auto cbSuccess =
 		[this, target, top](Message<uint32_t> m) {
 			FindNodesMessage fm;
-			std::vector<unsigned char>::const_iterator it = m.data.begin();
 			auto nf_it = this->nodes_being_found.find(target);
 			if (nf_it == this->nodes_being_found.end()) return;
 			auto& nf = nf_it->second;
 			nf.contacted.push_back(top);
                         nf.waiting--;
-			read(it, fm);
+                        readFromMessage(fm, m);
 			this->findNodesStep(target, fm.nearest);
 		};
 	this->send(m, CallbackSet::onSuccess(cbSuccess));
@@ -468,7 +363,7 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 			break;
 		}
 		PingMessage pm(true);
-		read(it, pm);
+		readFromMessage(pm, m);
 		auto pingpong = pm.is_ping() ? "ping" : "pong";
 		std::cout << "[" << pm.sender << "] " << pingpong
 		          <<"(" << this->getKey() << ")" << std::endl;
@@ -482,8 +377,7 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 			outbound.sender = this->getKey();
 			resp.destination = m.originator;
 			resp.originator = this->getAddress();
-			auto resp_data_it = resp.data.begin();
-			write(resp_data_it, outbound);
+			writeToMessage(outbound, resp);
 			this->send(resp);
 		}
 		break;
@@ -495,7 +389,7 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 		}
 		FindNodesMessage fm;
 		// This is unsafe. Out of bounds reads may happen.
-		read(it, fm); // TODO: make this less unsafe
+		readFromMessage(fm, m);
 		// Observe
 		sender = fm.sender;
 		this->observe(m.originator, sender);
@@ -513,8 +407,7 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 			fm.nearest = entries;
 
 			resp.data.resize(fm.num_found * (KEY_LEN + 20) + 10*KEY_LEN, 0);
-			auto resp_data_it = resp.data.begin();
-			write(resp_data_it, fm);
+			writeToMessage(fm, resp);
 			std::swap(resp.destination, resp.originator);
 			this->send(resp);
 		} else {
@@ -571,15 +464,15 @@ void KademliaNode::updateOrAddToBucket(unsigned bucket_index, BucketEntry new_en
 	auto lrs_entry = bucket[0];
 	auto lrs_address = bucket[0].address;
 	auto tag = this->randomTag();
-	std::vector<unsigned char> data(64, 0);
+	std::vector<unsigned char> data;
 
 	PingMessage pm = PingMessage::ping();
 	pm.sender = this->getKey();
-	auto data_it = data.begin();
-	write(data_it, pm);
+
 
 	auto msg = Message<uint32_t>(
 		KM_PING, this->getAddress(), lrs_address, tag, data);
+	writeToMessage(pm, msg);
 
 	// If the node responds, we hoist it to the most recently seen
 	// position, and drop the new entry.

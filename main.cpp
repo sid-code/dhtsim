@@ -10,11 +10,8 @@
 
 using namespace dhtsim;
 
-void test_rw();
 
 int main() {
-	std::cout << "[testing read/writes]" << std::endl;
-	test_rw();
 	std::cout << "[startup]" << std::endl;
 	CentralizedNetwork<uint32_t> net(1024000);
 	unsigned int tick = 0;

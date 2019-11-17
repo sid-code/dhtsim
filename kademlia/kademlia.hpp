@@ -13,6 +13,8 @@
 #include <openssl/sha.h>
 #include <cstring>
 
+#include <nop/structure.h>
+
 namespace dhtsim {
 
 static const unsigned int KADEMLIA_KEY_LEN = SHA_DIGEST_LENGTH;
@@ -38,6 +40,10 @@ struct KademliaKey {
 		}
 		return os;
 	}
+
+        KademliaKey() {}
+
+        NOP_STRUCTURE(KademliaKey, key);
 };
 
 /**
@@ -95,6 +101,10 @@ public:
 		friend bool operator>(const BucketEntry& l, const BucketEntry& r) {
 			return l.key > r.key;
 		}
+
+                BucketEntry() {}
+
+                NOP_STRUCTURE(BucketEntry, key, address, lastSeen);
 	};
 
 	/**
