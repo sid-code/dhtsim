@@ -1,12 +1,12 @@
-#include "application.hpp"
 #include "kademlia.hpp"
+#include "application.hpp"
+#include "message.hpp"
 
 #include <functional>
 #include <algorithm>
 #include <vector>
 #include <map>
 #include <queue>
-#include <sstream>
 
 #include <openssl/sha.h>
 
@@ -60,21 +60,6 @@ static bool key_distance_cmp(const KademliaNode::Key& target,
 	}
 
 	return false;
-}
-
-template <typename T> static void writeToMessage(T msg_data, Message<uint32_t>& m) {
-	nop::Serializer<nop::StreamWriter<std::stringstream>> serializer;
-	serializer.Write(msg_data);
-	const std::string data = serializer.writer().take().str();
-	m.data.resize(data.length());
-	std::copy(data.begin(), data.end(), m.data.begin());
-}
-template <typename T> static void readFromMessage(T& msg_data, const Message<uint32_t>& m) {
-	std::string data(m.data.begin(), m.data.end());
-	std::stringstream ss;
-	ss.str(data);
-	nop::Deserializer<nop::StreamReader<std::stringstream>> deserializer{std::move(ss)};
-	deserializer.Read(&msg_data);
 }
 
 struct PingMessage {
