@@ -108,7 +108,6 @@ public:
 	// This just does findNodes and then calls the other overload
 	// of store with the addresses that were returned.
 	void store(const std::vector<unsigned char>& value);
-
 	void store(uint32_t target_address,
 	           const std::vector<unsigned char>& data);
 
