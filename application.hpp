@@ -36,40 +36,59 @@ public:
 		using FailureFn = std::function<void(FailureParameter)>;
 		// Main constructors
 		CallbackSet() = default;
-		CallbackSet(std::optional<SuccessFn> successFn,
-		            std::optional<FailureFn> failureFn)
-			: successFn(successFn),
-			  failureFn(failureFn) {};
-		CallbackSet(const CallbackSet& other) = default;
-		~CallbackSet() = default;
+		CallbackSet(const std::vector<SuccessFn>& successFns,
+		            const std::vector<FailureFn>& failureFns)
+			: successFns(successFns),
+			  failureFns(failureFns) {};
+		CallbackSet(const SuccessFn& successFn,
+		            const FailureFn& failureFn) {
+			this->successFns.push_back(successFn);
+			this->failureFns.push_back(failureFn);
+		}
 
 		// Static constructors
 		static CallbackSet onSuccess(SuccessFn fn) {
-			return CallbackSet(fn, std::nullopt);
+			CallbackSet s;
+			s.successFns.push_back(fn);
+			return s;
 		}
 		static CallbackSet onFailure(FailureFn fn) {
-			return CallbackSet(std::nullopt, fn);
+			CallbackSet s;
+			s.failureFns.push_back(fn);
+			return s;
 		}
 
 		void success(SuccessParameter m) const {
-			if (this->successFn.has_value()) {
-				(*this->successFn)(m);
+			for (const auto& sf : this->successFns) {
+				sf(m);
 			}
 		}
 		void failure(FailureParameter m) const {
-			if (this->failureFn.has_value()) {
-				(*this->failureFn)(m);
+			for (const auto& ff : this->failureFns) {
+				ff(m);
 			}
 		}
 
-		bool isEmpty() const {
-			return this->successFn == std::nullopt &&
-				this->failureFn == std::nullopt;
+		bool empty() const {
+			return this->successFns.empty() && this->failureFns.empty();
+		}
+
+		void operator+=(const CallbackSet& other) {
+			this->successFns.insert(this->successFns.end(),
+			                        other.successFns.begin(), other.successFns.end());
+			this->failureFns.insert(this->failureFns.end(),
+			                        other.failureFns.begin(), other.failureFns.end());
+		}
+		friend CallbackSet operator+(const CallbackSet& c1, const CallbackSet& c2) {
+			CallbackSet result;
+			result += c1;
+			result += c2;
+			return result;
 		}
 	private:
-		std::optional<SuccessFn> successFn = std::nullopt;
-		std::optional<FailureFn> failureFn = std::nullopt;
-	};
+		std::vector<SuccessFn> successFns;
+		std::vector<FailureFn> failureFns;
+        };
 
 	template <typename KeyType, typename ValueType> class DHTNode {
 	public:

@@ -223,7 +223,7 @@ template <typename A> void BaseApplication<A>::send(
 		timeout = this->defaultTimeout;
 	}
 
-	if (!callback.isEmpty()) {
+	if (!callback.empty()) {
 		SentMessage sentmsg(m, callback, this->epoch, timeout, maxRetries);
 		this->callbacks[m.tag] = sentmsg;
 	}
