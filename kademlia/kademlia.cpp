@@ -102,47 +102,6 @@ struct FindNodesMessage {
 };
 
 
-//void test_rw() {
-//	std::vector<unsigned char> data(256, 0);
-//	std::vector<unsigned char>::iterator write_it = data.begin();
-//	std::vector<unsigned char>::const_iterator read_it;
-//
-//	KademliaNode n;
-//	FindNodesMessage fm, fm_copy;
-//
-//	fm.sender = n.getKey();
-//	fm.target = n.getKey();
-//	fm.num_found = 1;
-//	auto entry = KademliaNode::BucketEntry();
-//	entry.address = 2121212;
-//	entry.key = n.getKey();
-//	std::cout<<entry.key<<std::endl;
-//	std::cout<<entry.address<<std::endl;
-//	entry.lastSeen = 0;
-//	fm.nearest.push_back(entry);
-//	write(write_it, fm);
-//	read_it = data.begin();
-//	read(read_it, fm_copy);
-//
-//	if (fm.sender == fm_copy.sender) {
-//		std::cout << "Test was a success." << std::endl;
-//	} else {
-//		std::cout << "Test was a failure." << std::endl;
-//		std::cout << "Stored key: " << fm.sender << std::endl;
-//		std::cout << "Read key:   " << fm_copy.sender << std::endl;
-//		std::exit(EXIT_FAILURE);
-//	}
-//	if (fm.num_found == fm_copy.num_found) {
-//		std::cout << "Test was a success." << std::endl;
-//	} else {
-//		std::cout << "Test was a failure." << std::endl;
-//		std::cout << "Stored nr: " << fm.num_found << std::endl;
-//		std::cout << "Read nr:   " << fm_copy.num_found << std::endl;
-//		std::exit(EXIT_FAILURE);
-//	}
-//
-//}
-
 void KademliaNode::tick(Time time) {
 	BaseApplication<uint32_t>::tick(time);
 }
