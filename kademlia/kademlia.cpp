@@ -304,7 +304,6 @@ void KademliaNode::findNodes(const Key& target, FindNodesCallbackSet callback) {
 void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 	Key sender;
 	BaseApplication<uint32_t>::handleMessage(m);
-	std::vector<unsigned char>::const_iterator it = m.data.begin();
 	auto resp = m;
 	switch (m.type) {
 	case KM_PING: {
