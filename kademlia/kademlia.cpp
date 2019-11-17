@@ -108,6 +108,19 @@ struct FindNodesMessage {
 
 };
 
+/**
+ * Store message data structure.
+ */
+struct StoreMessage {
+	bool request;
+	KademliaNode::Key sender;
+
+	KademliaNode::Key key; // the key under which to store the value
+	std::vector<unsigned char> value; // the value
+
+	NOP_STRUCTURE(StoreMessage, request, sender, key, value);
+};
+
 void KademliaNode::tick(Time time) {
 	BaseApplication<uint32_t>::tick(time);
 }
@@ -301,6 +314,37 @@ void KademliaNode::findNodes(const Key& target, FindNodesCallbackSet callback) {
 	this->findNodesStart(target);
 }
 
+void KademliaNode::store(uint32_t target_address,
+			 const Key& store_under,
+                         const std::vector<unsigned char>& value) {
+	StoreMessage sm;
+	sm.sender = this->getKey();
+	sm.key = store_under;
+	sm.value = value;
+
+	Message<uint32_t> m;
+	m.type = KM_PING;
+	m.originator = this->getAddress();
+	m.destination = target_address;
+
+	writeToMessage(sm, m);
+
+	this->send(m);
+}
+
+void KademliaNode::storeValue(const Key& store_under, const std::vector<unsigned char>& value) {
+	auto loc = this->table.find(store_under);
+	if (loc != this->table.end()) {
+		loc->second.last_touch = this->epoch;
+		return;
+	}
+	KademliaNode::TableEntry table_entry;
+	table_entry.value = value;
+	table_entry.last_touch = this->epoch;
+
+	this->table[store_under] = table_entry;
+}
+
 void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 	Key sender;
 	BaseApplication<uint32_t>::handleMessage(m);
@@ -366,6 +410,25 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 				this->observe(entry.address, entry.key);
 			}
 		}
+		break;
+	}
+	case KM_STORE: {
+		StoreMessage sm;
+		readFromMessage(sm, m);
+		this->observe(m.originator, sm.sender);
+
+		if (sm.request) {
+			this->storeValue(sm.key, sm.value);
+
+			sm.request = false;
+			sm.value.clear();
+			sm.sender = this->getKey();
+			auto resp = m;
+			std::swap(resp.originator, resp.destination);
+			writeToMessage(sm, resp);
+			this->send(resp);
+		}
+
 		break;
 	}
 	default:

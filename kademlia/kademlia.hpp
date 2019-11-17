@@ -107,6 +107,12 @@ public:
                 NOP_STRUCTURE(BucketEntry, key, address, lastSeen);
 	};
 
+	/** An entry in this node's hash table */
+	struct TableEntry {
+		std::vector<unsigned char> value;
+		Time last_touch;
+	};
+
 	/**
 	 * A node finder. This is used by the find_nodes operation to
 	 * keep track of progress.
@@ -144,9 +150,12 @@ public:
 
 	void findNodes(const Key& target, FindNodesCallbackSet callback);
 	void findValue(const Key& target, const Key& stored_key, FindValueCallbackSet callback);
-	void store(const Key& target, std::vector<unsigned char> data,
-	           StoreCallbackSet callback);
+	void store(uint32_t target_address,
+	           const Key& store_under,
+	           const std::vector<unsigned char>& data);
+
 	void ping(uint32_t target_address, PingCallbackSet callback);
+
 	void observe(uint32_t other_address, const Key& other_key);
 private:
 	/** How many entries in each routing bucket? */
@@ -157,6 +166,9 @@ private:
 
 	Key key;
 	std::vector<std::vector<BucketEntry>> buckets;
+
+	/** The table of data that this node stores */
+	std::map<Key, TableEntry> table;
 
 
 	/** Called every time we see another node */
@@ -171,6 +183,9 @@ private:
         void findNodesStep(const Key &target,
                            const std::vector<BucketEntry> &new_nodes = {});
         void findNodesFinish(const Key& target);
+
+	/** store helper */
+	void storeValue(const Key& store_under, const std::vector<unsigned char>& value);
 };
 
 } // namespace dhtsim
