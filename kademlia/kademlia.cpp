@@ -1,4 +1,7 @@
 #include "kademlia.hpp"
+#include "key.hpp"
+#include "bucket.hpp"
+#include "message_structs.hpp"
 #include "application.hpp"
 #include "message.hpp"
 
@@ -70,80 +73,25 @@ static bool key_distance_cmp(const KademliaNode::Key& target,
 	return false;
 }
 
-/** Ping message data structure */
-struct PingMessage {
-        bool ping_or_pong;
-	KademliaNode::Key sender;
-	PingMessage(bool ping) : ping_or_pong(ping) {};
-	bool is_ping() { return ping_or_pong; }
-        static PingMessage ping() {
-		return PingMessage(true);
-	}
-	static PingMessage pong() {
-		return PingMessage(false);
-	}
-	PingMessage() = default;
 
-	NOP_STRUCTURE(PingMessage, ping_or_pong, sender);
-};
-
-/**
- * Find nodes message data structure.
- * This is also used for find_value.
- */
-struct FindNodesMessage {
-	KademliaNode::Key sender;
-
-	bool request; // is this a request or response?
-	bool find_value = false; // is this a find_value request?
-
-	// The key we're searching for. This can either be the key of
-	// a node we want or the key of a value we want.
-	KademliaNode::Key target;
-
-	// For finding nodes:
-	uint32_t num_found;
-	std::vector<KademliaNode::BucketEntry> nearest;
-	// For finding values:
-	bool value_found = false; // was a value found?
-	std::vector<unsigned char> value; // the value that was found
-
-	FindNodesMessage() = default;
-
-	NOP_STRUCTURE(FindNodesMessage, sender, request, find_value, target, num_found, nearest, value_found, value);
-
-};
-
-/**
- * Store message data structure.
- */
-struct StoreMessage {
-	bool request;
-	KademliaNode::Key sender;
-
-	KademliaNode::Key key; // the key under which to store the value
-	std::vector<unsigned char> value; // the value
-
-	NOP_STRUCTURE(StoreMessage, request, sender, key, value);
-};
 
 void KademliaNode::tick(Time time) {
 	BaseApplication<uint32_t>::tick(time);
 }
 
 static void sortByDistanceTo(const KademliaNode::Key& target,
-                             std::vector<KademliaNode::BucketEntry>& bucket) {
+                             std::vector<BucketEntry>& bucket) {
 
-        auto cmp_fn = [target](const KademliaNode::BucketEntry &e1,
-                            const KademliaNode::BucketEntry &e2) {
+        auto cmp_fn = [target](const BucketEntry &e1,
+                            const BucketEntry &e2) {
 	                      return key_distance_cmp(target, e1.key, e2.key);
                       };
 
 	std::sort(bucket.begin(), bucket.end(), cmp_fn);
 }
 // static void insertSortedByDistanceTo(const KademliaNode::Key& target,
-//                                      std::vector<KademliaNode::BucketEntry>& entries,
-//                                      const KademliaNode::BucketEntry& entry) {
+//                                      std::vector<BucketEntry>& entries,
+//                                      const BucketEntry& entry) {
 // 	for (auto it = entries.begin(); it != entries.end(); it++) {
 // 		if (!key_distance_cmp(target, it->key, entry.key)) {
 // 			entries.insert(it, entry);

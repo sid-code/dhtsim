@@ -15,36 +15,10 @@
 
 #include <nop/structure.h>
 
+#include "key.hpp"
+#include "message_structs.hpp"
+
 namespace dhtsim {
-
-static const unsigned int KADEMLIA_KEY_LEN = SHA_DIGEST_LENGTH;
-
-struct KademliaKey {
-	unsigned char key[KADEMLIA_KEY_LEN];
-	friend bool operator==(const KademliaKey& l, const KademliaKey& r) {
-		return memcmp(&l.key, &r.key, KADEMLIA_KEY_LEN) == 0;
-	}
-	friend bool operator<(const KademliaKey& l, const KademliaKey& r) {
-		return memcmp(&l.key, &r.key, KADEMLIA_KEY_LEN) < 0;
-	}
-	friend bool operator>(const KademliaKey& l, const KademliaKey& r) {
-		return memcmp(&l.key, &r.key, KADEMLIA_KEY_LEN) > 0;
-	}
-	friend std::ostream &operator<<(std::ostream &os,
-					const KademliaKey &key) {
-		const unsigned PRINT_MAX = 4;
-		unsigned i;
-		for (i = 0; i < PRINT_MAX; i++) {
-			os << std::hex << (int)key.key[i];
-			os << std::dec;
-		}
-		return os;
-	}
-
-        KademliaKey() {}
-
-        NOP_STRUCTURE(KademliaKey, key);
-};
 
 /**
  * A distributed hash table node in a network where addresses are 32
@@ -58,8 +32,6 @@ class KademliaNode
     : public BaseApplication<uint32_t>,
       public Application<uint32_t>::DHTNode<KademliaKey, std::vector<unsigned char>> {
 public:
-	struct BucketEntry;
-
 	/////// TYPES
 
 	/* A bunch of type aliases for callback types. */
@@ -88,24 +60,6 @@ public:
 		KM_PING, KM_FIND_NODES, KM_FIND_VALUE, KM_STORE
 	};
 
-	/* This is one entry in a k-bucket. It holds a node id, a
-	 * network address, and a time when this node was last
-	 * seen. */
-	struct BucketEntry {
-		Key key;
-		uint32_t address;
-		Time lastSeen;
-		friend bool operator<(const BucketEntry& l, const BucketEntry& r) {
-			return l.key < r.key;
-		}
-		friend bool operator>(const BucketEntry& l, const BucketEntry& r) {
-			return l.key > r.key;
-		}
-
-                BucketEntry() {}
-
-                NOP_STRUCTURE(BucketEntry, key, address, lastSeen);
-	};
 
 	/** An entry in this node's hash table */
 	struct TableEntry {
