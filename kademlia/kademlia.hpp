@@ -36,11 +36,9 @@ public:
 
 	/* A bunch of type aliases for callback types. */
 
-	using CallbackSet = Application<uint32_t>::CallbackSet<>;
-	using PingCallbackSet = Application<uint32_t>::CallbackSet<int, int>;
-	using FindNodesCallbackSet =
-		Application<uint32_t>::CallbackSet<FindNodesMessage, FindNodesMessage>;
-	using StoreCallbackSet = Application<uint32_t>::CallbackSet<void, void>;
+	using SendCallbackSet = CallbackSet<Message<uint32_t>, Message<uint32_t>>;
+	using PingCallbackSet = CallbackSet<int, int>;
+	using FindNodesCallbackSet = CallbackSet<FindNodesMessage, FindNodesMessage>;
 
 	/* Aliases for the DHTNode callback types */
 	using GetCallbackSet = Application<uint32_t>::DHTNode<KademliaKey, std::vector<unsigned char>>::GetCallbackSet;

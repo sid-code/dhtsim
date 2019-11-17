@@ -145,7 +145,7 @@ void KademliaNode::ping(uint32_t other_address, PingCallbackSet callback) {
 				 callback.failure(1);
 			 };
 
-	this->send(m, CallbackSet(cbSuccess, cbFailure));
+	this->send(m, SendCallbackSet(cbSuccess, cbFailure));
 }
 
 /* One step in the find_nodes operation.  This function is quite
@@ -250,7 +250,7 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 				this->findNodesStep(target, fm.nearest);
                         }
 		};
-	this->send(m, CallbackSet::onSuccess(cbSuccess));
+	this->send(m, SendCallbackSet::onSuccess(cbSuccess));
 }
 void KademliaNode::findNodesStart(const Key& target) {
 	auto nearest = this->getNearest(this->k, target);
@@ -531,7 +531,7 @@ void KademliaNode::updateOrAddToBucket(unsigned bucket_index, BucketEntry new_en
 		        this->buckets[bucket_index].push_back(new_entry);
 		};
 
-        this->send(msg, CallbackSet(cbSuccess, cbFail));
+        this->send(msg, SendCallbackSet(cbSuccess, cbFail));
 }
 
 void KademliaNode::observe(uint32_t other_address, const KademliaNode::Key& other_key) {

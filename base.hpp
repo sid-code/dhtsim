@@ -4,6 +4,7 @@
 #include "application.hpp"
 #include "message.hpp"
 #include "time.hpp"
+#include "callback.hpp"
 
 #include <map>
 #include <iostream>
@@ -13,7 +14,7 @@
 namespace dhtsim {
 template <typename A> class BaseApplication : public Application<A> {
 public:
-	using CallbackSet = typename Application<A>::template CallbackSet<>;
+	using SendCallbackSet = CallbackSet<Message<A>, Message<A>>;
 	virtual void recv(Message<A> m) { this->queueIn(m); }
 	virtual std::optional<Message<A>> unqueueOut();
 	virtual void handleMessage(const Message<A>& m);
@@ -26,7 +27,7 @@ public:
          * @param {maxRetries} how many times to retry? (exponential backoff, starting with timeout)
          */
 	virtual void send(Message<A> m,
-	                  CallbackSet callback = CallbackSet(),
+	                  SendCallbackSet callback = SendCallbackSet(),
                           unsigned int maxRetries = 16,
                           unsigned long timeout = 0);
 
@@ -74,7 +75,7 @@ private:
 		Message<A> message;
 
 		/** The function to be called when the response arrives. */
-		CallbackSet callback;
+		SendCallbackSet callback;
 
 		/** The time at which this message was last sent. */
 		Time timeSent;
@@ -89,7 +90,7 @@ private:
 		unsigned long maxRetries;
 
 		SentMessage() = default;
-                SentMessage(Message<A> m, CallbackSet cbf, Time time,
+                SentMessage(Message<A> m, SendCallbackSet cbf, Time time,
                             unsigned long timeout, unsigned int maxRetries)
 			: message(m), callback(cbf), timeSent(time),
 			  nextSend(time + timeout), retries(0), maxRetries(maxRetries) {}
@@ -210,7 +211,7 @@ template <typename A> void BaseApplication<A>::tick(Time time) {
 
 template <typename A> void BaseApplication<A>::send(
 	Message<A> m,
-	BaseApplication<A>::CallbackSet callback,
+	BaseApplication<A>::SendCallbackSet callback,
 	unsigned int maxRetries,
 	unsigned long timeout) {
 
