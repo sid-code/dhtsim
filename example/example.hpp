@@ -24,6 +24,10 @@
 #include "application.hpp"
 #include "base.hpp"
 #include "message.hpp"
+#include "callback.hpp"
+
+// Kademlia #includes more things, can check there to see if there's
+// something you need
 
 namespace dhtsim {
 // You should change this to whatever you need to use.
@@ -35,18 +39,25 @@ class ExampleNode :
 	public BaseApplication<uint32_t>,
 	// It's a distributed hash table node (blah blah 32 bit
 	// addresses).
-	//
+	public Application<uint32_t>::DHTNode<ExampleKeyType, std::vector<unsigned char>>
+	//        ----------------------------^      ---------^
 	// The first parameter is the key type, the second is the
 	// value type.  You can make the key parameter anything you
 	// want, but you should use std::vector<unsigned char> for the
 	// value type.
-	public Application<uint32_t>::DHTNode<ExampleKeyType, std::vector<unsigned char>> {
-
+{
 public:
 	// Some type aliases for convenience. You may need/want to add more here.
 	using GetCallbackSet =
 		Application<uint32_t>::DHTNode<ExampleKeyType, std::vector<unsigned  char>>::GetCallbackSet;
-	
+
+	// About CallbackSets: A callback set is essentially a
+	// collection of functions for the success case and a
+	// collection of functions for the failure case. See
+	// callback.hpp for constructor signatures. Fundamentally, the
+	// send function in base.hpp takes a CallbackSet so you have
+	// to chain everything off that. (I really hope that makes
+	// sense)
 
 	// Now, we need to implement the virtual methods from both
 	// BaseApplication and DHTNode.
