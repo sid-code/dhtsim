@@ -29,14 +29,6 @@ protected:
 	unsigned long randomTag();
 public:
 
-	template <typename KeyType, typename ValueType> class DHTNode {
-	public:
-		using GetCallbackSet = CallbackSet<ValueType, ValueType>;
-		virtual KeyType put(const ValueType& v) = 0;
-		virtual void get(const KeyType& k, GetCallbackSet callback) = 0;
-		virtual KeyType getKey(const ValueType& v) = 0;
-	};
-
         Application();
 	virtual ~Application() = default;
 

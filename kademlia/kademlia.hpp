@@ -4,6 +4,7 @@
 #include "application.hpp"
 #include "base.hpp"
 #include "time.hpp"
+#include "dhtnode.hpp"
 
 #include <vector>
 #include <queue>
@@ -30,7 +31,7 @@ namespace dhtsim {
  */
 class KademliaNode
     : public BaseApplication<uint32_t>,
-      public Application<uint32_t>::DHTNode<KademliaKey, std::vector<unsigned char>> {
+      public DHTNode<KademliaKey, std::vector<unsigned char>> {
 public:
 	/////// TYPES
 
@@ -41,7 +42,7 @@ public:
 	using FindNodesCallbackSet = CallbackSet<FindNodesMessage, FindNodesMessage>;
 
 	/* Aliases for the DHTNode callback types */
-	using GetCallbackSet = Application<uint32_t>::DHTNode<KademliaKey, std::vector<unsigned char>>::GetCallbackSet;
+	using GetCallbackSet = DHTNode<KademliaKey, std::vector<unsigned char>>::GetCallbackSet;
 
 	/* As per kademlia, the key length is the length of the SHA1
 	 * digest */

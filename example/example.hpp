@@ -35,11 +35,10 @@ using ExampleKeyType = uint32_t;
 
 // This class will use multiple inheritance:
 class ExampleNode :
-	// It's an application that runs on a network with 32 bit addresses
+	// It's an application that runs on a network with 32 bit addresses.
 	public BaseApplication<uint32_t>,
-	// It's a distributed hash table node (blah blah 32 bit
-	// addresses).
-	public Application<uint32_t>::DHTNode<ExampleKeyType, std::vector<unsigned char>>
+	// It's a distributed hash table node.
+	public DHTNode<ExampleKeyType, std::vector<unsigned char>>
 	//        ----------------------------^      ---------^
 	// The first parameter is the key type, the second is the
 	// value type.  You can make the key parameter anything you
@@ -49,7 +48,7 @@ class ExampleNode :
 public:
 	// Some type aliases for convenience. You may need/want to add more here.
 	using GetCallbackSet =
-		Application<uint32_t>::DHTNode<ExampleKeyType, std::vector<unsigned  char>>::GetCallbackSet;
+		DHTNode<ExampleKeyType, std::vector<unsigned  char>>::GetCallbackSet;
 
 	// About CallbackSets: A callback set is essentially a
 	// collection of functions for the success case and a
