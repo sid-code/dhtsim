@@ -6,6 +6,7 @@
 #include "application.hpp"
 #include "base.hpp"
 #include "kademlia/kademlia.hpp"
+#include "kademlia/message_structs.hpp"
 
 
 using namespace dhtsim;
@@ -37,28 +38,37 @@ int main() {
 
 
 	bool done = false;
+	std::vector<KademliaNode::Key> keys(n_nodes);
+	std::vector<std::vector<unsigned char>> things_to_store(n_nodes);
+        for (i = 0; i < n_nodes; i++) {
+	        things_to_store[i].push_back('a' + (unsigned char)(i%26));
+        }
+
+        auto cbs = KademliaNode::GetCallbackSet::onSuccess(
+				              [](std::vector<unsigned char> value) {
+					              std::string s(value.begin(), value.end());
+					              std::cout << "Value: " << s << std::endl;
+				              }) + KademliaNode::GetCallbackSet::onFailure(
+				              [](std::vector<unsigned char> value) {
+					              (void)value;
+						      std::cout << "we failed." << std::endl;
+				              });
 	while (!done) {
 		net.tick();
 		tick++;
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-		if (tick % 20 == 0) {
-			nodes[2]->die();
-			nodes[1]->findNodes(
-				nodes[2]->getKey(),
-				KademliaNode::FindNodesCallbackSet::onSuccess(
-					[&done](std::vector<KademliaNode::BucketEntry> results) {
-						std::cout << results.size()
-						          << " results."
-						          << std::endl;
-						for (const auto& entry : results) {
-							std::cout << entry.address << " "
-							          << entry.key << std::endl;
-
-						}
-
-					}));
-			
+		if (tick == 10) {
+			for (i = 0; i < n_nodes; i++) {
+				keys[i] = nodes[0]->put(things_to_store[i]);
+			}
 		}
+
+		if (tick == 100) {
+			nodes[0]->get(keys[30], cbs);
+			nodes[1]->get(keys[20], cbs);
+			nodes[2]->get(keys[10], cbs);
+		}
+
 	}
 }

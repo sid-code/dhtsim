@@ -10,13 +10,14 @@
 #include <vector>
 #include <map>
 #include <queue>
-
-#include <openssl/sha.h>
+#include <chrono>
+#include <thread>
 
 #include <nop/structure.h>
 #include <nop/serializer.h>
 #include <nop/utility/stream_reader.h>
 #include <nop/utility/stream_writer.h>
+#include <openssl/sha.h>
 
 using namespace dhtsim;
 
@@ -102,15 +103,15 @@ static void sortByDistanceTo(const KademliaNode::Key& target,
 // 	entries.push_back(entry);
 // }
 
-std::vector<KademliaNode::BucketEntry> KademliaNode::getNearest(
+std::vector<BucketEntry> KademliaNode::getNearest(
 	unsigned n, const Key& target) {
 	return this->getNearest(n, target, this->getKey());
 }
 
-std::vector<KademliaNode::BucketEntry> KademliaNode::getNearest(
+std::vector<BucketEntry> KademliaNode::getNearest(
 	unsigned n, const Key& target, const Key& exclude) {
 
-	std::vector<KademliaNode::BucketEntry> entries, result;
+	std::vector<BucketEntry> entries, result;
 	unsigned i;
 	for (i = 0; i < KEY_LEN; i++) {
 		for (const auto &entry : this->buckets[i]) {
@@ -187,8 +188,13 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 	// Stopping condition
 	if (nf.uncontacted.empty()) {
 		if (nf.waiting == 0) {
-			this->findNodesFinish(target);
-		}
+			if (nf.find_value) {
+				this->findNodesFail(target);
+			} else {
+				this->findNodesFinish(target);
+			}
+		} else{
+			std::cout << "Dry return." << std::endl;}
 		return;
 	}
 
@@ -223,6 +229,7 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 	fm.request = true;
 	fm.sender = this->getKey();
 	fm.target = target;
+	fm.find_value = nf.find_value;
 	fm.num_found = 0;
 
 	writeToMessage(fm, m);
@@ -237,7 +244,11 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 			nf.contacted.push_back(top);
                         nf.waiting--;
                         readFromMessage(fm, m);
-			this->findNodesStep(target, fm.nearest);
+                        if (fm.find_value && fm.value_found) {
+	                        this->findNodesFinish(target, fm.value);
+                        } else {
+				this->findNodesStep(target, fm.nearest);
+                        }
 		};
 	this->send(m, CallbackSet::onSuccess(cbSuccess));
 }
@@ -245,21 +256,42 @@ void KademliaNode::findNodesStart(const Key& target) {
 	auto nearest = this->getNearest(this->k, target);
 	this->findNodesStep(target, nearest);
 }
+
+void KademliaNode::findNodesFail(const Key& target) {
+	auto nf_it = this->nodes_being_found.find(target);
+	FindNodesMessage fm;
+	fm.find_value = true;
+	fm.value_found = false;
+	nf_it->second.find_nodes_callback.failure(fm);
+}
+
 void KademliaNode::findNodesFinish(const Key& target) {
 	auto nf_it = this->nodes_being_found.find(target);
 	sortByDistanceTo(target, nf_it->second.contacted);
-	nf_it->second.callback.success(nf_it->second.contacted);
-	std::cout << "Erased " << target << std::endl;
+	FindNodesMessage result;
+	result.request = false;
+	result.find_value = false;
+	result.num_found = nf_it->second.contacted.size();
+	result.nearest = nf_it->second.contacted;
+	nf_it->second.find_nodes_callback.success(result);
+	this->nodes_being_found.erase(target);
+}
+
+void KademliaNode::findNodesFinish(const Key& target, const std::vector<unsigned char>& value) {
+	auto nf_it = this->nodes_being_found.find(target);
+	FindNodesMessage result;
+	result.request = false;
+	result.find_value = true;
+	result.value_found = true;
+	result.value = value;
+	nf_it->second.find_nodes_callback.success(result);
 	this->nodes_being_found.erase(target);
 }
 
 void KademliaNode::findNodes(const Key& target, FindNodesCallbackSet callback) {
-	std::vector<BucketEntry> start_nodes;
-	if (this->nodes_being_found.find(target) != this->nodes_being_found.end()) {
-		std::clog << "[" << this->getKey()
-		          << "] Ignoring duplicate findNodes call to "
-		          << target
-		          << std::endl;
+	auto loc = this->nodes_being_found.find(target);
+	if (loc != this->nodes_being_found.end()) {
+		loc->second.find_nodes_callback += callback;
 		return;
 	}
 
@@ -267,17 +299,44 @@ void KademliaNode::findNodes(const Key& target, FindNodesCallbackSet callback) {
 	this->nodes_being_found[target] = nf;
 	this->findNodesStart(target);
 }
+void KademliaNode::findValue(const Key& target, FindNodesCallbackSet callback) {
+	if (this->nodes_being_found.find(target) != this->nodes_being_found.end()) {
+		std::clog << "[" << this->getKey()
+		          << "] Ignoring duplicate findValue call to "
+		          << target
+		          << std::endl;
+		return;
+	}
 
+	NodeFinder nf(target, callback);
+	nf.find_value = true;
+	this->nodes_being_found[target] = nf;
+	this->findNodesStart(target);
+}
+
+void KademliaNode::store(const std::vector<unsigned char>& value) {
+
+	auto store_under = this->getKey(value);
+	auto cb_success = [this, value](FindNodesMessage m) {
+		                  // We must sleep here for 1
+		                  // nanosecond. Otherwise this
+		                  // doesn't work.
+				  std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+				  for (const auto& entry : m.nearest) {
+					  this->store(entry.address, value);
+				  }
+			  };
+
+	this->findNodes(store_under, FindNodesCallbackSet::onSuccess(cb_success));
+}
 void KademliaNode::store(uint32_t target_address,
-			 const Key& store_under,
                          const std::vector<unsigned char>& value) {
 	StoreMessage sm;
 	sm.sender = this->getKey();
-	sm.key = store_under;
 	sm.value = value;
 
 	Message<uint32_t> m;
-	m.type = KM_PING;
+	m.type = KM_STORE;
 	m.originator = this->getAddress();
 	m.destination = target_address;
 
@@ -297,6 +356,40 @@ void KademliaNode::storeValue(const Key& store_under, const std::vector<unsigned
 	table_entry.last_touch = this->epoch;
 
 	this->table[store_under] = table_entry;
+}
+
+void KademliaNode::handleMessage(const Message<uint32_t>& m, FindNodesMessage& fm) {
+	auto resp = m;
+	if (fm.request) {
+		// First, check the request is for a value and if we have that value.
+		auto loc = this->table.find(fm.target);
+		if (fm.find_value && loc != this->table.end()) {
+			std::cout << "[" << fm.sender << "] " << this->getKey()
+				  << ".find_value(" << fm.target << ") FOUND!" << std::endl;
+
+			fm.value_found = true;
+			fm.value = loc->second.value;
+		} else {
+			std::cout << "[" << fm.sender << "] " << this->getKey()
+			          << (fm.find_value ? ".find_value(" : ".find_nodes(")
+			          << fm.target << ")" << std::endl;
+
+			auto entries = this->getNearest(this->k, fm.target, fm.sender);
+			fm.num_found = entries.size();
+			fm.nearest = entries;
+		}
+		fm.request = 0;
+		fm.sender = this->getKey();
+		writeToMessage(fm, resp);
+		std::swap(resp.destination, resp.originator);
+		this->send(resp);
+	} else {
+		for (const auto &entry : fm.nearest) {
+			// std::clog << "Observed " << entry.key
+			//          << " at " << entry.address << std::endl;
+			this->observe(entry.address, entry.key);
+		}
+	}
 }
 
 void KademliaNode::handleMessage(const Message<uint32_t>& m) {
@@ -341,29 +434,7 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 		sender = fm.sender;
 		this->observe(m.originator, sender);
 
-		if (fm.request) {
-			std::cout << "[" << fm.sender << "] "
-			          << this->getKey() << ".find_nodes(" << fm.target << ")"
-			          << std::endl;
-
-			auto entries = this->getNearest(this->k, fm.target, fm.sender);
-
-			fm.request = 0;
-			fm.sender = this->getKey();
-			fm.num_found = entries.size();
-			fm.nearest = entries;
-
-			resp.data.resize(fm.num_found * (KEY_LEN + 20) + 10*KEY_LEN, 0);
-			writeToMessage(fm, resp);
-			std::swap(resp.destination, resp.originator);
-			this->send(resp);
-		} else {
-			for (const auto& entry : fm.nearest) {
-				//std::clog << "Observed " << entry.key
-				//          << " at " << entry.address << std::endl;
-				this->observe(entry.address, entry.key);
-			}
-		}
+		this->handleMessage(m, fm);
 		break;
 	}
 	case KM_STORE: {
@@ -372,7 +443,10 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 		this->observe(m.originator, sm.sender);
 
 		if (sm.request) {
-			this->storeValue(sm.key, sm.value);
+			auto store_under = this->getKey(sm.value);
+			std::cout << "[" << sm.sender << "] " << this->getKey() << ".store("
+			          << store_under << ")" << std::endl;
+			this->storeValue(store_under, sm.value);
 
 			sm.request = false;
 			sm.value.clear();
@@ -470,12 +544,22 @@ void KademliaNode::observe(uint32_t other_address, const KademliaNode::Key& othe
 }
 
 void KademliaNode::get(const Key& stored_key, GetCallbackSet callback) {
-	(void) stored_key;
-	(void) callback;
+	this->findValue(stored_key, FindNodesCallbackSet::onSuccess(
+		                [callback](FindNodesMessage fm) {
+			                if (fm.value_found) {
+						callback.success(fm.value);
+			                } else {
+						callback.failure(fm.value);
+			                }
+		                }) + FindNodesCallbackSet::onFailure(
+		                [callback](FindNodesMessage fm) {
+			                callback.failure(fm.value);
+		                }));
 }
 KademliaNode::Key KademliaNode::put(const std::vector<unsigned char>& value) {
-	(void) value;
-        return {key = {}};
+	auto key = this->getKey(value);
+	this->store(value);
+	return key;
 }
 KademliaNode::Key KademliaNode::getKey(const std::vector<unsigned char>& value) {
 	return getSHA1(value);

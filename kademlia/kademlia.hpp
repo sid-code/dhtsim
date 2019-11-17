@@ -39,8 +39,7 @@ public:
 	using CallbackSet = Application<uint32_t>::CallbackSet<>;
 	using PingCallbackSet = Application<uint32_t>::CallbackSet<int, int>;
 	using FindNodesCallbackSet =
-		Application<uint32_t>::CallbackSet<std::vector<KademliaNode::BucketEntry>, int>;
-	using FindValueCallbackSet = Application<uint32_t>::CallbackSet<void, void>;
+		Application<uint32_t>::CallbackSet<FindNodesMessage, FindNodesMessage>;
 	using StoreCallbackSet = Application<uint32_t>::CallbackSet<void, void>;
 
 	/* Aliases for the DHTNode callback types */
@@ -74,9 +73,10 @@ public:
 	struct NodeFinder {
 		NodeFinder() = default;
 		NodeFinder(Key target, FindNodesCallbackSet callback)
-			: target(target), callback(callback) {};
+			: target(target), find_nodes_callback(callback) {};
+		bool find_value = false; // was this a find_value call?
 		Key target; // the key of the node being searched for
-		FindNodesCallbackSet callback; // the callback set to call when done
+		FindNodesCallbackSet find_nodes_callback; // the callback set to call when done
 		uint32_t waiting = 0; // number of recursive find nodes pending
 		std::vector<BucketEntry> uncontacted; // nodes yet to contact
 		std::vector<BucketEntry> contacted; // nodes to be returned
@@ -94,6 +94,7 @@ public:
 
 	virtual void tick(Time time);
 	virtual void handleMessage(const Message<uint32_t>& m);
+	virtual void handleMessage(const Message<uint32_t>& m, FindNodesMessage& fm);
 
 	/* High level DHT node functions */
 	virtual Key put(const std::vector<unsigned char>& v);
@@ -103,9 +104,13 @@ public:
         /* RPCS */
 
 	void findNodes(const Key& target, FindNodesCallbackSet callback);
-	void findValue(const Key& target, const Key& stored_key, FindValueCallbackSet callback);
+	void findValue(const Key& target, FindNodesCallbackSet callback);
+
+	// This just does findNodes and then calls the other overload
+	// of store with the addresses that were returned.
+	void store(const std::vector<unsigned char>& value);
+
 	void store(uint32_t target_address,
-	           const Key& store_under,
 	           const std::vector<unsigned char>& data);
 
 	void ping(uint32_t target_address, PingCallbackSet callback);
@@ -136,7 +141,9 @@ private:
 	void findNodesStart(const Key& target);
         void findNodesStep(const Key &target,
                            const std::vector<BucketEntry> &new_nodes = {});
+	void findNodesFail(const Key& target);
         void findNodesFinish(const Key& target);
+	void findNodesFinish(const Key& target, const std::vector<unsigned char>& value);
 
 	/** store helper */
 	void storeValue(const Key& store_under, const std::vector<unsigned char>& value);
