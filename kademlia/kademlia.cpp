@@ -29,6 +29,12 @@ KademliaNode::KademliaNode() {
 }
 
 
+static KademliaNode::Key getSHA1(const std::vector<unsigned char>& value) {
+	KademliaNode::Key result;
+	SHA1(&value[0], value.size(), result.key);
+	return result;
+}
+
 /** How many trailing zeros does c have in binary? */
 static unsigned l2c(unsigned char c) {
 	unsigned result = 0;
@@ -519,12 +525,10 @@ void KademliaNode::get(const Key& stored_key, GetCallbackSet callback) {
 	(void) stored_key;
 	(void) callback;
 }
-KademliaKey KademliaNode::put(const std::vector<unsigned char>& value) {
+KademliaNode::Key KademliaNode::put(const std::vector<unsigned char>& value) {
 	(void) value;
         return {key = {}};
 }
-KademliaKey KademliaNode::getKey(const std::vector<unsigned char>& value) {
-	KademliaKey result;
-	SHA1(&value[0], value.size(), result.key);
-	return result;
+KademliaNode::Key KademliaNode::getKey(const std::vector<unsigned char>& value) {
+	return getSHA1(value);
 }
