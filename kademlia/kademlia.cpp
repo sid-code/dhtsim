@@ -29,12 +29,14 @@ KademliaNode::KademliaNode() {
 }
 
 
+/** How many trailing zeros does c have in binary? */
 static unsigned l2c(unsigned char c) {
 	unsigned result = 0;
 	for ( ; c > 0; c >>= 1, result++);
 	return result;
 }
 
+/** Longest matching binary prefix of the two keys. */
 static unsigned longest_matching_prefix(const KademliaNode::Key& k1, const KademliaNode::Key& k2) {
 	unsigned i;
 	for (i = 0; i < KademliaNode::KEY_LEN; i++) {
@@ -46,7 +48,7 @@ static unsigned longest_matching_prefix(const KademliaNode::Key& k1, const Kadem
 	return KademliaNode::KEY_LEN_BITS;
 }
 
-// Returns true if k1 is closer to target, false otherwise.
+/** Returns true if k1 is closer to target, false otherwise. */
 static bool key_distance_cmp(const KademliaNode::Key& target,
 			     const KademliaNode::Key& k1,
 			     const KademliaNode::Key& k2) {
@@ -62,6 +64,7 @@ static bool key_distance_cmp(const KademliaNode::Key& target,
 	return false;
 }
 
+/** Ping message data structure */
 struct PingMessage {
         bool ping_or_pong;
 	KademliaNode::Key sender;
@@ -78,6 +81,10 @@ struct PingMessage {
 	NOP_STRUCTURE(PingMessage, ping_or_pong, sender);
 };
 
+/**
+ * Find nodes message data structure.
+ * This is also used for find_value.
+ */
 struct FindNodesMessage {
 	KademliaNode::Key sender;
 
@@ -100,7 +107,6 @@ struct FindNodesMessage {
 	NOP_STRUCTURE(FindNodesMessage, sender, request, find_value, target, num_found, nearest, value_found, value);
 
 };
-
 
 void KademliaNode::tick(Time time) {
 	BaseApplication<uint32_t>::tick(time);
