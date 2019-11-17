@@ -509,7 +509,7 @@ void KademliaNode::get(const Key& stored_key, GetCallbackSet callback) {
 }
 KademliaKey KademliaNode::put(const std::vector<unsigned char>& value) {
 	(void) value;
-        return {0};
+        return {key = {}};
 }
 KademliaKey KademliaNode::getKey(const std::vector<unsigned char>& value) {
 	KademliaKey result;
