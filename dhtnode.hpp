@@ -11,6 +11,7 @@ public:
 	virtual KeyType put(const ValueType& v) = 0;
 	virtual void get(const KeyType& k, GetCallbackSet callback) = 0;
 	virtual KeyType getKey(const ValueType& v) = 0;
+	virtual void die() = 0; // BaseApplication provides this one
 };
 }
 

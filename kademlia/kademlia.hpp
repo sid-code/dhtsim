@@ -99,6 +99,7 @@ public:
 	virtual Key put(const std::vector<unsigned char>& v);
 	virtual void get(const Key& k, GetCallbackSet callback);
 	virtual Key getKey(const std::vector<unsigned char>& value);
+        virtual void die() { BaseApplication<uint32_t>::die(); }
 
         /* RPCS */
 
