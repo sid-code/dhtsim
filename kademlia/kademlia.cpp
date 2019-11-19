@@ -250,7 +250,17 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 				this->findNodesStep(target, fm.nearest);
                         }
 		};
-	this->send(m, SendCallbackSet::onSuccess(cbSuccess));
+	auto cbFailure =
+		[this, target](Message<uint32_t> m) {
+			(void) m;
+			auto nf_it = this->nodes_being_found.find(target);
+			if (nf_it == this->nodes_being_found.end()) return;
+			auto& nf = nf_it->second;
+                        nf.waiting--;
+			this->findNodesStep(target, {});
+		};
+
+	this->send(m, SendCallbackSet(cbSuccess, cbFailure), 1, 2);
 }
 void KademliaNode::findNodesStart(const Key& target) {
 	auto nearest = this->getNearest(this->k, target);
@@ -300,11 +310,9 @@ void KademliaNode::findNodes(const Key& target, FindNodesCallbackSet callback) {
 	this->findNodesStart(target);
 }
 void KademliaNode::findValue(const Key& target, FindNodesCallbackSet callback) {
-	if (this->nodes_being_found.find(target) != this->nodes_being_found.end()) {
-		std::clog << "[" << this->getKey()
-		          << "] Ignoring duplicate findValue call to "
-		          << target
-		          << std::endl;
+	auto loc = this->nodes_being_found.find(target);
+	if (loc != this->nodes_being_found.end()) {
+		loc->second.find_nodes_callback += callback;
 		return;
 	}
 

@@ -119,7 +119,7 @@ private:
 		}
 	};
 
-	void attemptRetry(SentMessage record);
+	void attemptRetry(SentMessage& record);
 
 	/**
 	 * A map of message tags to "sent message" records. When a
@@ -162,7 +162,7 @@ template <typename A> void BaseApplication<A>::queueOut(Message<A> m) {
 	}
 }
 
-template <typename A> void BaseApplication<A>::attemptRetry(SentMessage record) {
+template <typename A> void BaseApplication<A>::attemptRetry(SentMessage& record) {
 	// Send the message again, but this time
 	// without a callback!.
 	this->send(record.message);
@@ -214,6 +214,14 @@ template <typename A> void BaseApplication<A>::send(
 	BaseApplication<A>::SendCallbackSet callback,
 	unsigned int maxRetries,
 	unsigned long timeout) {
+
+	// Dead nodes send no messages, but we'll be nice and call the
+	// failure function. It doesn't really make much sense, but
+	// this becomes a lot harder otherwise.
+	if (this->dead) {
+		callback.failure(m);
+		return;
+	}
 
 	if (m.tag == 0) {
 		m.tag = this->randomTag();
