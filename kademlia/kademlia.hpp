@@ -115,6 +115,19 @@ public:
 	void ping(uint32_t target_address, PingCallbackSet callback);
 
 	void observe(uint32_t other_address, const Key& other_key);
+
+	// temp debug func
+	void dumpBuckets() {
+		for (unsigned i = 0; i < KEY_LEN_BITS; i++) {
+			if (this->buckets[i].empty()) continue;
+			std::cout << "[" << this->getKey() << "] bucket "
+			          << i << ": " << std::endl;
+			for (const auto &entry : this->buckets[i]) {
+				std::cout << entry.key << " "
+				          << entry.address << std::endl;
+			}
+                }
+        }
 private:
 	/** How many entries in each routing bucket? */
 	const unsigned k = 10;
