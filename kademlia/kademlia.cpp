@@ -136,16 +136,17 @@ void KademliaNode::ping(uint32_t other_address, PingCallbackSet callback) {
 	m.data.resize(KEY_LEN + 20);
 	writeToMessage(pm, m);
 
-	auto cbSuccess = [callback](Message<uint32_t> m) {
+	auto cb_success = [callback](Message<uint32_t> m) {
 		                 (void) m;
 		                 callback.success(0);
 	                 };
-	auto cbFailure = [callback](Message<uint32_t> m) {
+	auto cb_failure = [this, callback, other_address](Message<uint32_t> m) {
 				 (void) m;
+				 this->unobserve(other_address);
 				 callback.failure(1);
 			 };
 
-	this->send(m, SendCallbackSet(cbSuccess, cbFailure));
+	this->send(m, SendCallbackSet(cb_success, cb_failure));
 }
 
 /* One step in the find_nodes operation.  This function is quite
@@ -251,8 +252,11 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
                         }
 		};
 	auto cbFailure =
-		[this, target](Message<uint32_t> m) {
+		[this, target, top](Message<uint32_t> m) {
 			(void) m;
+			// Remove it from our buckets
+			this->unobserve(top.address);
+
 			auto nf_it = this->nodes_being_found.find(target);
 			if (nf_it == this->nodes_being_found.end()) return;
 			auto& nf = nf_it->second;
@@ -549,6 +553,18 @@ void KademliaNode::observe(uint32_t other_address, const KademliaNode::Key& othe
 	entry.address = other_address;
 	entry.lastSeen = this->epoch;
 	updateOrAddToBucket(which_bucket, entry);
+}
+void KademliaNode::unobserve(uint32_t other_address) {
+	// Search all buckets for that address:
+	for (auto& bucket : this->buckets) {
+		for (auto it = bucket.begin(); it != bucket.end(); ) {
+			if (it->address == other_address) {
+				it = bucket.erase(it);
+			} else {
+				++it;
+			}
+		}
+	}
 }
 
 void KademliaNode::get(const Key& stored_key, GetCallbackSet callback) {

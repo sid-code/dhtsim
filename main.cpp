@@ -47,6 +47,7 @@ void experiment(const Time start_tick,
 			});
 
 	if (tick == start_tick) {
+		total_time = 0;
 		for (i = 0; i < n_values; i++) {
 			std::string x = std::to_string(i);
 			std::vector<unsigned char> d(x.begin(), x.end());
@@ -104,21 +105,19 @@ int main() {
 		net.tick();
 		tick++;
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
-		total_time = 0;
 		experiment(10, tick, nodes, n_values, keys, waiting, total_time, true);
-		total_time = 0;
 		experiment(300, tick, nodes, n_values, keys, waiting, total_time, false);
-		// Half the nodes now die.
+		// Some nodes now die.
 		if (tick == 350) {
 			for (i = 0; i < n_nodes; i++) {
 				// we don't want to kill node 0
-				if (i % 2 == 1) {
-					std::static_pointer_cast<KademliaNode>(nodes[i])->die();
+				if (i % 3 != 0) {
+					nodes[i]->die();
 				}
 			}
 		}
 		
-		total_time = 0;
 		experiment(400, tick, nodes, n_values, keys, waiting, total_time, false);
+		experiment(500, tick, nodes, n_values, keys, waiting, total_time, false);
 	}
 }
