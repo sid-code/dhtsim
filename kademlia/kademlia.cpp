@@ -412,9 +412,9 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 		}
 		PingMessage pm(true);
 		readFromMessage(pm, m);
-		auto pingpong = pm.is_ping() ? "ping" : "pong";
-		std::cout << "[" << pm.sender << "] " << pingpong
-		          <<"(" << this->getKey() << ")" << std::endl;
+		//auto pingpong = pm.is_ping() ? "ping" : "pong";
+		//std::cout << "[" << pm.sender << "] " << pingpong
+		//          <<"(" << this->getKey() << ")" << std::endl;
 
 		// Observe
 		sender = pm.sender;
