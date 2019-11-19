@@ -5,6 +5,8 @@
 #include "time.hpp"
 #include "callback.hpp"
 
+#include "random.h"
+
 #include <queue>
 #include <functional>
 #include <random>
@@ -13,17 +15,13 @@
 
 namespace dhtsim {
 
+
 /**
  * The following class represents an abstract application on a network
  * that has addresses of type A. A distributed hash table node will be
  * an instance of a subclass of this class.
  */
 template <typename A> class Application {
-private:
-	// RNG stuff
-	std::random_device dev;
-	std::mt19937 rng;
-	std::uniform_int_distribution<std::mt19937::result_type> dist;
 protected:
 	A address = 0;
 	unsigned long randomTag();
@@ -72,13 +70,10 @@ public:
 };
 
 template <typename A> Application<A>::Application() {
-	this->rng = std::mt19937(dev());
-	this->dist = std::uniform_int_distribution<std::mt19937::result_type>(
-		0, std::numeric_limits<unsigned long>::max());
 }
 
 template <typename A> unsigned long Application<A>::randomTag() {
-	return this->dist(this->rng);
+	return global_rng.Number((unsigned long)0, std::numeric_limits<unsigned long>::max());
 }
 
 }
