@@ -5,9 +5,8 @@
 namespace dhtsim {
 
 template <typename SuccessParameter,
-		typename FailureParameter = SuccessParameter>
-class CallbackSet
-{
+	  typename FailureParameter = SuccessParameter>
+class CallbackSet {
 public:
 	using SuccessFn = std::function<void(SuccessParameter)>;
 	using FailureFn = std::function<void(FailureParameter)>;
