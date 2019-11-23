@@ -129,6 +129,14 @@ std::vector<BucketEntry> KademliaNode::getNearest(
 }
 
 void KademliaNode::ping(uint32_t other_address, PingCallbackSet callback) {
+	auto cb_it = this->pings_in_progress.find(other_address);
+	if (cb_it != this->pings_in_progress.end()) {
+		cb_it->second += callback;
+		return;
+	} else {
+		this->pings_in_progress[other_address] = callback;
+	}
+
 	Message<uint32_t> m(KM_PING, this->getAddress(), other_address, 0,
 	                    std::vector<unsigned char>());
 	PingMessage pm = PingMessage::ping();
@@ -136,12 +144,15 @@ void KademliaNode::ping(uint32_t other_address, PingCallbackSet callback) {
 	m.data.resize(KEY_LEN + 20);
 	writeToMessage(pm, m);
 
-	auto cb_success = [callback](Message<uint32_t> m) {
+
+	auto cb_success = [this, other_address, callback](Message<uint32_t> m) {
 		                 (void) m;
+		                 this->pings_in_progress.erase(other_address);
 		                 callback.success(0);
 	                 };
 	auto cb_failure = [this, callback, other_address](Message<uint32_t> m) {
 				 (void) m;
+		                 this->pings_in_progress.erase(other_address);
 				 this->unobserve(other_address);
 				 callback.failure(1);
 			 };

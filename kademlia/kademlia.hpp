@@ -150,7 +150,21 @@ private:
 	std::vector<BucketEntry> getNearest(unsigned n, const Key& key);
 	std::vector<BucketEntry> getNearest(unsigned n, const Key& key, const Key& exclude);
 
-	/** findNodes helpers */
+	/**
+	 * A map of addresses being pinged to their callbacks.
+	 * To avoid sending tons of pings, keep track of them and add
+	 * callbacks together
+	 */
+	std::map<uint32_t, PingCallbackSet> pings_in_progress;
+
+	/* findNodes helpers */
+
+	/**
+	 * A map of keys that are being searched for to the data
+	 * structure that keeps track of the process. This is similar
+	 * to the pings_in_progress map but a little more
+	 * elaborate.
+	 */
 	std::map<Key, NodeFinder> nodes_being_found;
 	void findNodesStart(const Key& target);
         void findNodesStep(const Key &target,
