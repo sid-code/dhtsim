@@ -1,10 +1,9 @@
 #include "network.hpp"
 #include "application.hpp"
-#include "pingonly.hpp"
+#include "random.h"
 #include <iostream>
 #include <map>
 #include <climits>
-#include <random>
 #include <functional>
 #include <memory>
 
@@ -14,17 +13,14 @@ using namespace dhtsim;
 template <typename A> CentralizedNetwork<A>::CentralizedNetwork(unsigned int linkLimit) {
 	this->linkLimit = linkLimit;
 	this->epoch = 0;
-	this->rng = std::mt19937(dev());
 }
 template <typename A> A CentralizedNetwork<A>::getNewAddress() {
-	std::uniform_int_distribution<std::mt19937::result_type>
-		dist(0, std::numeric_limits<A>::max());
 	A attempt;
 	const uint32_t max_tries = 1000;
 	uint32_t tries;
 
 	for (tries = 0; tries < max_tries; tries++) {
-	        attempt = dist(this->rng);
+		attempt = global_rng.Number<A>(std::pair(0, std::numeric_limits<A>::max()));
 	        auto it = this->inhabitants.find(attempt);
 	        if (it == this->inhabitants.end()) {
 		        return attempt;
@@ -40,21 +36,25 @@ template <typename A> A CentralizedNetwork<A>::add(std::shared_ptr<Application<A
 
 	this->inhabitants[address] = app;
 	app->setAddress(address);
+	app->tick(this->epoch);
 	return address;
 }
 
-template <typename A> void CentralizedNetwork<A>::tick() {
-	// keeps track of the total bytes transferred per link
-	unsigned int totalPayload;
+template <typename A> void CentralizedNetwork<A>::remove(std::shared_ptr<Application<A>> app) {
+	this->inhabitants.erase(app->getAddress());
+}
 
-	// keeps track of the total number of messages transferred per link
-	unsigned int messageCount;
+template <typename A> void CentralizedNetwork<A>::tick() {
+	// Keeps of the total bytes transferred per link
+	unsigned long totalLinkTransfer;
+
+	// Keeps track of the total bytes transferred during this tick.
+	unsigned long totalTransferred = 0;
 
 	// In the following for loop, app is a shared_ptr to the
 	// application
 	for (const auto [address, app] : this->inhabitants) {
-		totalPayload = 0;
-		messageCount = 0;
+		totalLinkTransfer = 0;
 
 		// handle inbound messages
 		app->tick(this->epoch);
@@ -63,13 +63,13 @@ template <typename A> void CentralizedNetwork<A>::tick() {
 		std::optional<Message<A>> outboundMessage = app->unqueueOut();
 		while (outboundMessage.has_value()) {
 			auto size = outboundMessage->data.size();
-			totalPayload += size;
+			totalLinkTransfer += size;
 			if (size > this->linkLimit) {
 				std::cerr << "DROPPED message of length " << size << std::endl;
 				break;
 			}
-			if (totalPayload > this->linkLimit) {
-				std::cerr << "RETRYING message of length" << size << std::endl;
+			if (totalLinkTransfer > this->linkLimit) {
+				std::cerr << "RETRYING message of length " << size << std::endl;
 				app->send(*outboundMessage);
 				break;
 			}
@@ -77,9 +77,13 @@ template <typename A> void CentralizedNetwork<A>::tick() {
 			this->passAlongMessage(*outboundMessage);
 
 		        outboundMessage = app->unqueueOut();
-		        messageCount++;
 		}
+
+		totalTransferred += totalLinkTransfer;
+
 	}
+
+	std::cout << "[E] T " << this->epoch << " " << totalTransferred << std::endl;
 
 	this->epoch++;
 }

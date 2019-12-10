@@ -2,88 +2,158 @@
 #include <chrono>
 #include <thread>
 
+#include "argh.h"
+
 #include "network.hpp"
 #include "application.hpp"
 #include "base.hpp"
+#include "experiment.hpp"
 #include "kademlia/kademlia.hpp"
 #include "kademlia/message_structs.hpp"
 
 
+
 using namespace dhtsim;
 
-using MyDHTNode = DHTNode<KademliaKey, std::vector<unsigned char>>;
+KademliaNode::Config global_kademlia_config;
 
-void experiment(const Time start_tick,
-		const Time& tick,
-                std::vector<std::shared_ptr<MyDHTNode>>& nodes,
-                unsigned int n_values,
-                std::vector<KademliaKey>& keys,
-                unsigned int& waiting,
-                Time& total_time,
-		bool store) {
-	Time find_start_time = 100;
-	if (!store) find_start_time = 0;
-	unsigned int i;
+template <typename Node>
+class ChurnExperiment : public Experiment<Node> {
 
-	auto cbs = KademliaNode::GetCallbackSet::onSuccess(
-		[start_tick, &tick, find_start_time, n_values, &waiting, &total_time](std::vector<unsigned char> value) {
-			waiting--;
-			total_time += tick - find_start_time - start_tick;
-			std::string s(value.begin(), value.end());
-			std::cout << "Value: " << s << " at "
-			          << tick << " (waiting for "
-			          << waiting << ")" << " took " << tick - (find_start_time + start_tick)
-			          << std::endl;
-			if (waiting == 0) {
-				std::cout << "Average time "
-				          << (double) total_time / n_values
-				          << std::endl;
+public:
+	ChurnExperiment(CentralizedNetwork<uint32_t> &net,
+	                const std::vector<std::shared_ptr<Application<uint32_t>>> &nodes)
+		: Experiment<Node>(net, nodes) {}
+
+	virtual void init() {
+		this->stored_data_keys.clear();
+		unsigned int i;
+		for (i = 0; i < this->nodes.size(); i++) {
+			std::string is = std::to_string(i);
+			std::vector<unsigned char> d(is.begin(), is.end());
+			auto key = this->store(this->nodes[i], d);
+			this->stored_data_keys.push_back(key);
+		}
+		for (i = 0; i < 500; i++) {
+			this->net.tick();
+		}
+	}
+
+	virtual void run() {
+		unsigned int max_iterations = 50000;
+		unsigned int i;
+
+		for (i = 0; i < max_iterations; i++) {
+			this->current_epoch = i;
+
+			// We kill off a random node and replace it
+			// with another.
+			if (i % 10 == 0) {
+				// we do not kill node zero
+				auto node_index = global_rng.Size_T(1, this->nodes.size()-1);
+				std::cout << "[E] R " << node_index << std::endl;
+				auto new_node = this->create();
+				this->nodes[node_index]->die();
+				this->net.remove(std::static_pointer_cast<Application<uint32_t>>(this->nodes[node_index]));
+				this->net.add(new_node);
+				this->nodes[node_index] = new_node;
+				this->waiting[node_index] = false;
+				this->introduce(this->nodes[node_index], this->nodes[0]);
 			}
-		}) +
-		KademliaNode::GetCallbackSet::onFailure(
-			[](std::vector<unsigned char> value) {
-				(void)value;
-				std::cout << "we failed." << std::endl;
-			});
 
-	if (tick == start_tick) {
-		total_time = 0;
-		for (i = 0; i < n_values; i++) {
-			std::string x = std::to_string(i);
-			std::vector<unsigned char> d(x.begin(), x.end());
-			if (store) {
-				keys[i] = nodes[i]->put(d);
+
+			auto node_index = global_rng.Size_T(0, this->nodes.size()-1);
+			auto target_data_index = global_rng.Size_T(0, this->nodes.size()-1);
+#ifdef DEBUG
+			std::cout << node_index << " wants to find " << target_data_index << std::endl;
+#endif
+			if (!this->waiting[node_index]) {
+				this->waiting[node_index] = true;
+				auto key = this->stored_data_keys[target_data_index];
+				auto now = this->net.current_epoch();
+				this->fetch(this->nodes[node_index], key,
+					typename ChurnExperiment::FetchCallbackSet(
+						[=](auto d) {(void)d;this->recordFind(node_index, target_data_index, now);},
+						[=](auto d) {(void)d;this->recordFail(node_index, target_data_index, now);}));
 			} else {
-				keys[i] = nodes[i]->getKey(d);
+#ifdef DEBUG
+				std::clog << node_index << " is waiting." << std::endl;
+#endif
 			}
-			std::cout << "key " << i << " " << keys[i] << std::endl;
+
+			this->net.tick();
 		}
+
 	}
 
-	if (tick == find_start_time + start_tick) {
-		for (i = 0; i < n_values; i++) {
-			waiting++;
-			nodes[0]->get(keys[i], cbs);
-		}
-	}
+};
+
+template<>
+std::shared_ptr<KademliaNode> Experiment<KademliaNode>::create() {
+	return std::make_shared<KademliaNode>(global_kademlia_config);
+}
+
+template <>
+void Experiment<KademliaNode>::introduce(const std::shared_ptr<Application<uint32_t>>& n1,
+					 const std::shared_ptr<Application<uint32_t>>& n2) {
+	auto n1_cast = std::static_pointer_cast<KademliaNode>(n1);
+	n1_cast->ping(n2->getAddress(), KademliaNode::PingCallbackSet());
+}
+template <>
+KademliaNode::Key Experiment<KademliaNode>::store(const std::shared_ptr<Application<uint32_t>>& storer,
+                                     const std::vector<unsigned char>& data) {
+	auto storer_cast = std::static_pointer_cast<KademliaNode>(storer);
+	return storer_cast->store(data);
+}
+template <>
+void Experiment<KademliaNode>::fetch(const std::shared_ptr<Application<uint32_t>>& storer,
+                                     const KademliaNode::Key& key,
+                                     Experiment::FetchCallbackSet cb) {
+	auto storer_cast = std::static_pointer_cast<KademliaNode>(storer);
+        auto cb_success = [=](FindNodesMessage fm) {
+				  if (fm.value_found) {
+					  cb.success(fm.value);
+				  }
+			  };
+	auto cb_fail = [=](FindNodesMessage fm) {
+		               (void) fm;
+			       cb.failure(1);
+		       };
+
+	storer_cast->findValue(key, KademliaNode::FindNodesCallbackSet(cb_success, cb_fail));
 }
 
 
-int main() {
-	std::cout << "[startup]" << std::endl;
-	CentralizedNetwork<uint32_t> net(1024000);
-	Time tick = 0;
+int main(int, char* argv[]) {
+	unsigned long link_limit, n_nodes;
+	argh::parser cmdl(argv);
+	cmdl("k", 10) >> global_kademlia_config.k;
+	cmdl("alpha", 3) >> global_kademlia_config.alpha;
+	cmdl("mp", 10000) >> global_kademlia_config.maintenance_period;
+	cmdl("rp", 1000) >> global_kademlia_config.bucket_refresh_period;
 
-	unsigned int n_nodes = 1500, i;
+	cmdl("ll", 1<<16) >> link_limit;
 
-        std::vector<std::shared_ptr<MyDHTNode>> nodes;
-        auto node_zero = std::make_shared<KademliaNode>();
+	cmdl("nn", 400) >> n_nodes;
+	std::clog << "Global network options: " << std::endl
+	          << "Link limit: " << link_limit << std::endl
+	          << "# nodes...: " << n_nodes << std::endl;
+	std::clog << "Kademlia options:" << std::endl
+		  << global_kademlia_config << std::endl;
+
+	std::clog << "[startup]" << std::endl;
+	CentralizedNetwork<uint32_t> net(link_limit);
+
+	unsigned long i;
+
+	std::vector<std::shared_ptr<Application<uint32_t>>> nodes;
+        auto node_zero = std::make_shared<KademliaNode>(global_kademlia_config);
         net.add(node_zero);
         nodes.push_back(node_zero);
         auto node_zero_address = node_zero->getAddress();
 
 	for (i = 1; i < n_nodes; i++) {
-		auto node = std::make_shared<KademliaNode>();
+		auto node = std::make_shared<KademliaNode>(global_kademlia_config);
 		net.add(node);
 		node->ping(node_zero_address, KademliaNode::PingCallbackSet());
 		nodes.push_back(node);
@@ -94,30 +164,13 @@ int main() {
 
 	}
 
-
-	bool done = false;
-
-	unsigned int waiting = 0;
-	unsigned int n_values = 30;
-	std::vector<KademliaNode::Key> keys(n_values);
-	Time total_time;
-	while (!done) {
+	// complete the warmup
+	for (i = 0; i < 100; i++) {
 		net.tick();
-		tick++;
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
-		experiment(10, tick, nodes, n_values, keys, waiting, total_time, true);
-		experiment(300, tick, nodes, n_values, keys, waiting, total_time, false);
-		// Some nodes now die.
-		if (tick == 350) {
-			for (i = 0; i < n_nodes; i++) {
-				// we don't want to kill node 0
-				if (i % 3 != 0) {
-					nodes[i]->die();
-				}
-			}
-		}
-		
-		experiment(400, tick, nodes, n_values, keys, waiting, total_time, false);
-		experiment(500, tick, nodes, n_values, keys, waiting, total_time, false);
 	}
+
+	auto exp = ChurnExperiment<KademliaNode>(net, nodes);
+	exp.init();
+	exp.run();
+
 }

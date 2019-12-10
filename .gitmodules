@@ -1,3 +1,6 @@
 [submodule "libnop"]
 	path = libnop
 	url = git@github.com:google/libnop
+[submodule "argh"]
+	path = argh
+	url = https://github.com/adishavit/argh

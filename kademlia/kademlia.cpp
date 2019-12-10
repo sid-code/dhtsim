@@ -21,14 +21,20 @@
 
 using namespace dhtsim;
 
-KademliaNode::KademliaNode() {
+static void randomizeKey(KademliaNode::Key& k) {
 	// Generate a random key with SHA1
-	unsigned long randval = this->randomTag();
-	SHA1((unsigned char *)&randval, sizeof(unsigned long), this->key.key);
+	uint64_t randval = global_rng.Uint_64(0, std::numeric_limits<unsigned long>::max());
+	SHA1((unsigned char*) &randval, sizeof(randval), k.key);
+}
+
+KademliaNode::KademliaNode(Config config) : config(config) {
+	randomizeKey(this->key);
+
+	this->maintenance_offset = global_rng.Number(0ul, config.maintenance_period - 1);
 
 	this->buckets.resize(KEY_LEN_BITS);
 	for (unsigned i = 0; i < KEY_LEN_BITS; i++){
-		this->buckets[i].reserve(this->k);
+		this->buckets[i].reserve(this->config.k);
 	}
 }
 
@@ -78,6 +84,13 @@ static bool key_distance_cmp(const KademliaNode::Key& target,
 
 void KademliaNode::tick(Time time) {
 	BaseApplication<uint32_t>::tick(time);
+	if (this->epoch % this->config.maintenance_period == this->maintenance_offset) {
+		this->runTableMaintenance();
+	}
+
+	if (this->epoch % this->config.bucket_refresh_period == this->maintenance_offset % this->config.bucket_refresh_period) {
+		this->refreshBuckets(RefreshCallbackSet());
+	}
 }
 
 static void sortByDistanceTo(const KademliaNode::Key& target,
@@ -157,7 +170,7 @@ void KademliaNode::ping(uint32_t other_address, PingCallbackSet callback) {
 				 callback.failure(1);
 			 };
 
-	this->send(m, SendCallbackSet(cb_success, cb_failure));
+	this->send(m, SendCallbackSet(cb_success, cb_failure), 1, 2);
 }
 
 /* One step in the find_nodes operation.  This function is quite
@@ -197,6 +210,12 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 		}
 	}
 
+#ifdef DEBUG
+	std::clog << "[" << this->getKey() << "] find nodes for "
+	          << target << " waiting for " << nf.waiting
+	          << " uncontacted " << nf.uncontacted.size() << std::endl;
+#endif
+
 	// Stopping condition
 	if (nf.uncontacted.empty()) {
 		if (nf.waiting == 0) {
@@ -206,8 +225,12 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 				this->findNodesFinish(target);
 			}
 		} else{
-			std::cout << "Dry return." << std::endl;}
-		return;
+#ifdef DEBUG
+			std::clog << "[" << this->getKey() << "] find_nodes dry return."
+			          << std::endl;
+#endif
+                }
+                return;
 	}
 
 	sortByDistanceTo(target, nf.uncontacted);
@@ -278,16 +301,17 @@ void KademliaNode::findNodesStep(const Key& target, const std::vector<BucketEntr
 	this->send(m, SendCallbackSet(cbSuccess, cbFailure), 1, 2);
 }
 void KademliaNode::findNodesStart(const Key& target) {
-	auto nearest = this->getNearest(this->k, target);
+	auto nearest = this->getNearest(this->config.k, target);
 	this->findNodesStep(target, nearest);
 }
 
 void KademliaNode::findNodesFail(const Key& target) {
 	auto nf_it = this->nodes_being_found.find(target);
 	FindNodesMessage fm;
-	fm.find_value = true;
+        fm.find_value = true;
 	fm.value_found = false;
 	nf_it->second.find_nodes_callback.failure(fm);
+	this->nodes_being_found.erase(nf_it);
 }
 
 void KademliaNode::findNodesFinish(const Key& target) {
@@ -337,35 +361,37 @@ void KademliaNode::findValue(const Key& target, FindNodesCallbackSet callback) {
 	this->findNodesStart(target);
 }
 
-void KademliaNode::store(const std::vector<unsigned char>& value) {
+KademliaNode::Key KademliaNode::store(const std::vector<unsigned char>& value) {
 
-	auto store_under = this->getKey(value);
+	auto store_under = getSHA1(value);
 	auto cb_success = [this, value](FindNodesMessage m) {
 		                  // We must sleep here for 1
 		                  // nanosecond. Otherwise this
 		                  // doesn't work.
-				  std::this_thread::sleep_for(std::chrono::nanoseconds(1));
 				  for (const auto& entry : m.nearest) {
 					  this->store(entry.address, value);
 				  }
 			  };
 
-	this->findNodes(store_under, FindNodesCallbackSet::onSuccess(cb_success));
+	auto cb_failure = [](FindNodesMessage m) {
+		                  (void)m;
+	                  };
+
+	this->findNodes(store_under, FindNodesCallbackSet(cb_success, cb_failure));
+	return store_under;
 }
-void KademliaNode::store(uint32_t target_address,
+KademliaNode::Key KademliaNode::store(uint32_t target_address,
                          const std::vector<unsigned char>& value) {
 	StoreMessage sm;
+	sm.request = 1;
 	sm.sender = this->getKey();
 	sm.value = value;
 
-	Message<uint32_t> m;
-	m.type = KM_STORE;
-	m.originator = this->getAddress();
-	m.destination = target_address;
-
+	Message<uint32_t> m(KM_STORE, this->getAddress(), target_address, 0, {});
 	writeToMessage(sm, m);
 
 	this->send(m);
+	return getSHA1(value);
 }
 
 void KademliaNode::storeValue(const Key& store_under, const std::vector<unsigned char>& value) {
@@ -377,6 +403,7 @@ void KademliaNode::storeValue(const Key& store_under, const std::vector<unsigned
 	KademliaNode::TableEntry table_entry;
 	table_entry.value = value;
 	table_entry.last_touch = this->epoch;
+	table_entry.added = this->epoch;
 
 	this->table[store_under] = table_entry;
 }
@@ -387,24 +414,31 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m, FindNodesMessage& f
 		// First, check the request is for a value and if we have that value.
 		auto loc = this->table.find(fm.target);
 		if (fm.find_value && loc != this->table.end()) {
-			std::cout << "[" << fm.sender << "] " << this->getKey()
-				  << ".find_value(" << fm.target << ") FOUND!" << std::endl;
+#ifdef DEBUG
+			std::clog << "[" << fm.sender << "] " << this->getKey()
+			          << ".find_value(" << fm.target << ") FOUND!\n";
+#endif
 
 			fm.value_found = true;
 			fm.value = loc->second.value;
 		} else {
-			std::cout << "[" << fm.sender << "] " << this->getKey()
-			          << (fm.find_value ? ".find_value(" : ".find_nodes(")
-			          << fm.target << ")" << std::endl;
 
-			auto entries = this->getNearest(this->k, fm.target, fm.sender);
+#ifdef DEBUG
+			std::clog << "[" << fm.sender << "] " << this->getKey()
+			          << (fm.find_value ? ".find_value(" : ".find_nodes(")
+			          << fm.target << ")\n";
+#endif
+
+			auto entries = this->getNearest(this->config.k, fm.target, fm.sender);
+			fm.value_found = false;
 			fm.num_found = entries.size();
 			fm.nearest = entries;
 		}
 		fm.request = 0;
 		fm.sender = this->getKey();
 		writeToMessage(fm, resp);
-		std::swap(resp.destination, resp.originator);
+		resp.destination = m.originator;
+		resp.originator = m.destination;
 		this->send(resp);
 	} else {
 		for (const auto &entry : fm.nearest) {
@@ -421,15 +455,13 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 	auto resp = m;
 	switch (m.type) {
 	case KM_PING: {
-		if (m.data.size() < 1) {
-			std::clog << "malformed ping (empty body)" << std::endl;
-			break;
-		}
 		PingMessage pm(true);
 		readFromMessage(pm, m);
-		//auto pingpong = pm.is_ping() ? "ping" : "pong";
-		//std::cout << "[" << pm.sender << "] " << pingpong
-		//          <<"(" << this->getKey() << ")" << std::endl;
+#ifdef DEBUG
+		auto pingpong = pm.is_ping() ? "ping" : "pong";
+		std::clog << "[" << pm.sender << "] " << pingpong
+		          <<"(" << this->getKey() << ")\n";
+#endif
 
 		// Observe
 		sender = pm.sender;
@@ -466,9 +498,11 @@ void KademliaNode::handleMessage(const Message<uint32_t>& m) {
 		this->observe(m.originator, sm.sender);
 
 		if (sm.request) {
-			auto store_under = this->getKey(sm.value);
-			std::cout << "[" << sm.sender << "] " << this->getKey() << ".store("
-			          << store_under << ")" << std::endl;
+			auto store_under = getSHA1(sm.value);
+#ifdef DEBUG
+			std::clog << "[" << sm.sender << "] " << this->getKey() << ".store("
+			          << store_under << ")\n";
+#endif
 			this->storeValue(store_under, sm.value);
 
 			sm.request = false;
@@ -512,7 +546,7 @@ void KademliaNode::updateOrAddToBucket(unsigned bucket_index, BucketEntry new_en
 	// Case 2: We have not seen the key of the new entry, but there is
 	// still space left to add a new key.
 
-	if (bucket.size() < k) {
+	if (bucket.size() < this->config.k) {
 		bucket.push_back(new_entry);
 		//std::clog << "[" << this->getKey() << "]"
 		//          << " added to bucket " << bucket_index << ": "
@@ -524,23 +558,13 @@ void KademliaNode::updateOrAddToBucket(unsigned bucket_index, BucketEntry new_en
 	// there is no space left.
 
 	// Ping the least-recently seen node:
-	auto lrs_entry = bucket[0];
 	auto lrs_address = bucket[0].address;
-	auto tag = this->randomTag();
 	std::vector<unsigned char> data;
-
-	PingMessage pm = PingMessage::ping();
-	pm.sender = this->getKey();
-
-
-	auto msg = Message<uint32_t>(
-		KM_PING, this->getAddress(), lrs_address, tag, data);
-	writeToMessage(pm, msg);
 
 	// If the node responds, we hoist it to the most recently seen
 	// position, and drop the new entry.
         auto cbSuccess =
-	        [this, bucket_index, lrs_entry](auto m) {
+	        [](auto m) {
 		        (void) m; // unused
 		};
 
@@ -554,7 +578,7 @@ void KademliaNode::updateOrAddToBucket(unsigned bucket_index, BucketEntry new_en
 		        this->buckets[bucket_index].push_back(new_entry);
 		};
 
-        this->send(msg, SendCallbackSet(cbSuccess, cbFail));
+        this->ping(lrs_address, PingCallbackSet(cbSuccess, cbFail));
 }
 
 void KademliaNode::observe(uint32_t other_address, const KademliaNode::Key& other_key) {
@@ -578,24 +602,87 @@ void KademliaNode::unobserve(uint32_t other_address) {
 	}
 }
 
-void KademliaNode::get(const Key& stored_key, GetCallbackSet callback) {
-	this->findValue(stored_key, FindNodesCallbackSet::onSuccess(
-		                [callback](FindNodesMessage fm) {
-			                if (fm.value_found) {
-						callback.success(fm.value);
-			                } else {
-						callback.failure(fm.value);
-			                }
-		                }) + FindNodesCallbackSet::onFailure(
-		                [callback](FindNodesMessage fm) {
-			                callback.failure(fm.value);
-		                }));
+void KademliaNode::runTableMaintenance() {
+	// Check if any of our table entries are stale.
+	std::map<Key, TableEntry>::iterator it;
+
+	// for-filter pattern: iteration happens inside the body.
+	for (it = this->table.begin(); it != this->table.end(); ) {
+		const auto& entry = it->second;
+		// I use addition instead of subtraction here to avoid
+		// unsigned underflow.
+		if (this->epoch >= this->config.maintenance_period + entry.last_touch) {
+			it = this->table.erase(it);
+		} else {
+			// Instead of doing a normal store, we can
+			// just get the k nearest nodes to us in our
+			// k-buckets and send those a store
+			// message. Why? I'm not really sure but I
+			// think I meet the preconditions for this
+			// optimization, because I do bucket refreshes
+			// quite often.
+			if (entry.added <= entry.last_touch) {
+				auto bucket_entries = this->getNearest(this->config.k, it->first);
+				for (const auto& bucket_entry : bucket_entries) {
+					this->store(bucket_entry.address, entry.value);
+				}
+			}
+			it++;
+		}
+	}
 }
-KademliaNode::Key KademliaNode::put(const std::vector<unsigned char>& value) {
-	auto key = this->getKey(value);
-	this->store(value);
-	return key;
+
+void KademliaNode::refreshSingleBucket(unsigned int bucket_index, RefreshCallbackSet cb) {
+	this->buckets[bucket_index];
+	Key k;
+	randomizeKey(k);
+	unsigned j;
+	auto myKey = this->getKey();
+	for (j = 0; j > KEY_LEN; j++) {
+		if (j*8 < bucket_index) {
+			k.key[j] = myKey.key[j];
+		} else {
+			unsigned piece = j*8 - bucket_index;
+			unsigned int myKeyMask = (1<<8) - (1<<piece);
+			unsigned int keyMask = (1<<piece) - 1;
+			k.key[j] = (myKey.key[j] & myKeyMask)
+				| (k.key[j] & keyMask);
+			break;
+		}
+	}
+
+	auto cb_fn = [cb](auto m) {(void) m; cb.success(0);};
+	this->findNodes(k, FindNodesCallbackSet(cb_fn, cb_fn));
 }
-KademliaNode::Key KademliaNode::getKey(const std::vector<unsigned char>& value) {
-	return getSHA1(value);
+
+void KademliaNode::refreshBuckets(RefreshCallbackSet cb) {
+	unsigned i;
+	std::vector<unsigned int> stale_buckets;
+	std::shared_ptr<unsigned int> waiting = std::make_shared<unsigned int>(0);
+	for (i = 0; i < KEY_LEN_BITS; i++) {
+		const auto& bucket = this->buckets[i];
+		bool stale = !bucket.empty();
+		for (const auto& entry : bucket) {
+			if (this->epoch < entry.lastSeen + this->config.bucket_refresh_period) {
+				stale = false;
+				break;
+			}
+		}
+
+
+		auto cb_fn =
+			[cb, waiting](auto x) {
+				(void)x;
+				(*waiting)--;
+				if (*waiting == 0) {
+					cb.success(0);
+				}
+			};
+
+		RefreshCallbackSet o_cb(cb_fn, cb_fn);
+		if (stale) {
+			(*waiting)++;
+			this->refreshSingleBucket(i, o_cb);
+		}
+	}
 }

@@ -22,6 +22,7 @@
 #define DHTSIM_EXAMPLE_H
 
 #include "application.hpp"
+#include "dhtnode.hpp"
 #include "base.hpp"
 #include "message.hpp"
 #include "callback.hpp"

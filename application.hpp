@@ -67,6 +67,10 @@ public:
 	 * Kill this node. It will no longer do anything.
 	 */
 	virtual void die() = 0;
+	/**
+	 * Returns whether this node is dead or not
+	 */
+	virtual bool isDead() = 0;
 };
 
 template <typename A> Application<A>::Application() {

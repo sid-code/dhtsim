@@ -15,7 +15,13 @@ namespace dhtsim {
 template <typename A> class BaseApplication : public Application<A> {
 public:
 	using SendCallbackSet = CallbackSet<Message<A>, Message<A>>;
-	virtual void recv(Message<A> m) { this->queueIn(m); }
+
+	// Contructor
+        BaseApplication() : epoch(0), 
+                            inqueue(), outqueue(),
+                            callbacks() {}
+
+        virtual void recv(Message<A> m) { this->queueIn(m); }
 	virtual std::optional<Message<A>> unqueueOut();
 	virtual void handleMessage(const Message<A>& m);
 	virtual void tick(Time time);
@@ -32,6 +38,8 @@ public:
                           unsigned long timeout = 0);
 
         virtual void die() { this->dead = true; }
+        virtual bool isDead() { return this->dead; }
+
 protected:
         /** The current network's time. */
         Time epoch;
@@ -47,10 +55,8 @@ private:
 	/* This section is for variables that configure this
 	 * application's network behavior. */
 
-	const unsigned int inqueueLimit = 1 << 20;
-	const unsigned int outqueueLimit = 1 << 20;
-
-
+	const unsigned int inqueueLimit = 1 << 15;
+	const unsigned int outqueueLimit = 1 << 15;
 
 	/**
 	 * The number of retry messages this application is willing to
@@ -81,7 +87,7 @@ private:
 		Time timeSent;
 
 		/** The time at which this message is scheduled to be sent next. */
-		Time nextSend;
+		Time nextSend = std::numeric_limits<Time>::max();
 
 		/** The number of times we have retried. */
 		unsigned long retries;
@@ -130,6 +136,7 @@ private:
 	std::map<unsigned long, SentMessage> callbacks;
 
 };
+
 
 template <typename A> std::optional<Message<A>> BaseApplication<A>::unqueueOut() {
 	if (this->outqueue.empty()) {

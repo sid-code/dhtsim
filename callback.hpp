@@ -17,7 +17,7 @@ public:
 		: successFns(successFns),
 		  failureFns(failureFns) {};
 	CallbackSet(const SuccessFn& successFn,
-			const FailureFn& failureFn) {
+		    const FailureFn& failureFn) {
 		this->successFns.push_back(successFn);
 		this->failureFns.push_back(failureFn);
 	}
