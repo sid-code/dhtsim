@@ -32,6 +32,8 @@ public:
                           unsigned long timeout = 0);
 
         virtual void die() { this->dead = true; }
+        virtual bool isDead() { return this->dead; }
+
 protected:
         /** The current network's time. */
         Time epoch;
