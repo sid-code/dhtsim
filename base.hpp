@@ -81,7 +81,7 @@ private:
 		Time timeSent;
 
 		/** The time at which this message is scheduled to be sent next. */
-		Time nextSend;
+		Time nextSend = std::numeric_limits<Time>::max();
 
 		/** The number of times we have retried. */
 		unsigned long retries;
