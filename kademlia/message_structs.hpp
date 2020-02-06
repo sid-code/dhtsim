@@ -39,7 +39,7 @@ struct FindNodesMessage {
 	// a node we want or the key of a value we want.
 	KademliaKey target;
 
-	// For finding nodes:
+        // For finding nodes:
 	uint32_t num_found;
 	std::vector<BucketEntry> nearest;
 	// For finding values:

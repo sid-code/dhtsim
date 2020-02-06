@@ -18,8 +18,6 @@ namespace dhtsim {
 template <typename A> class CentralizedNetwork {
 private:
 	std::map<A, std::shared_ptr<Application<A>>> inhabitants;
-	std::random_device dev;
-	std::mt19937 rng;
         A getNewAddress();
 	Time epoch;
 public:
@@ -27,9 +25,10 @@ public:
 	unsigned int linkLimit;
 	CentralizedNetwork(unsigned int linkLimit = 1024);
 	A add(std::shared_ptr<Application<A>> x);
-	std::shared_ptr<Application<A>> resolve();
+	void remove(std::shared_ptr<Application<A>> x);
 	void tick();
 	void passAlongMessage(Message<A> message);
+        Time current_epoch() { return this->epoch; };
 };
 
 

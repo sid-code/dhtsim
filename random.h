@@ -148,6 +148,6 @@ namespace Random
 }
 
 namespace dhtsim {
-	static Random::Generator global_rng;
+	static Random::Generator global_rng(1234);
 }
 #endif

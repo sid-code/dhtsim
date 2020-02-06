@@ -136,6 +136,7 @@ private:
 
 };
 
+
 template <typename A> std::optional<Message<A>> BaseApplication<A>::unqueueOut() {
 	if (this->outqueue.empty()) {
 		return {};

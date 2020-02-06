@@ -23,7 +23,7 @@ struct KademliaKey {
 		return memcmp(&l.key, &r.key, KADEMLIA_KEY_LEN) > 0;
 	}
 	friend std::ostream &operator<<(std::ostream &os,
-					const KademliaKey &key) {
+	                                const KademliaKey &key) {
 		const unsigned PRINT_MAX = 4;
 		unsigned i;
 		for (i = 0; i < PRINT_MAX; i++) {
@@ -33,7 +33,7 @@ struct KademliaKey {
 		return os;
 	}
 
-        KademliaKey() {}
+        KademliaKey() : key() {}
 
         NOP_STRUCTURE(KademliaKey, key);
 };
