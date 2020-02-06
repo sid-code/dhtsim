@@ -15,7 +15,12 @@ namespace dhtsim {
 template <typename A> class BaseApplication : public Application<A> {
 public:
 	using SendCallbackSet = CallbackSet<Message<A>, Message<A>>;
-	virtual void recv(Message<A> m) { this->queueIn(m); }
+
+        BaseApplication() : epoch(0),
+                            inqueue(), outqueue(),
+                            callbacks() {}
+
+        virtual void recv(Message<A> m) { this->queueIn(m); }
 	virtual std::optional<Message<A>> unqueueOut();
 	virtual void handleMessage(const Message<A>& m);
 	virtual void tick(Time time);
