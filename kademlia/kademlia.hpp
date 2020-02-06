@@ -4,7 +4,6 @@
 #include "application.hpp"
 #include "base.hpp"
 #include "time.hpp"
-#include "dhtnode.hpp"
 
 #include <vector>
 #include <queue>
