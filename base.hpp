@@ -47,10 +47,8 @@ private:
 	/* This section is for variables that configure this
 	 * application's network behavior. */
 
-	const unsigned int inqueueLimit = 1 << 20;
-	const unsigned int outqueueLimit = 1 << 20;
-
-
+	const unsigned int inqueueLimit = 1 << 15;
+	const unsigned int outqueueLimit = 1 << 15;
 
 	/**
 	 * The number of retry messages this application is willing to
